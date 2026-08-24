@@ -9,8 +9,10 @@ const fastify = Fastify({ logger: true });
 
 async function startServer() {
   await fastify.register(cors, {
-    origin: '*',
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    credentials: true,
   });
 
   await registerApiRoutes(fastify);
@@ -21,6 +23,7 @@ async function startServer() {
     cors: {
       origin: '*',
       methods: ['GET', 'POST'],
+      credentials: true,
     },
   });
 
