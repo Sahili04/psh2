@@ -17,6 +17,28 @@ interface SocketContextType {
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
+function getSocketHost(): string {
+  if (typeof window !== 'undefined') {
+    const customHost = localStorage.getItem('h02_api_url');
+    if (customHost) return customHost;
+  }
+
+  let envHost = ((import.meta as any).env?.VITE_API_URL || '').trim();
+  if (envHost) {
+    if (!envHost.startsWith('http://') && !envHost.startsWith('https://')) {
+      envHost = `https://${envHost}`;
+    }
+    return envHost;
+  }
+
+  if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
+    const backendHost = window.location.hostname.replace('h02-frontend', 'h02-backend');
+    return `https://${backendHost}`;
+  }
+
+  return 'http://localhost:5000';
+}
+
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -35,11 +57,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   useEffect(() => {
-    let rawSocketUrl = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:5000').trim();
-    if (rawSocketUrl && !rawSocketUrl.startsWith('http://') && !rawSocketUrl.startsWith('https://')) {
-      rawSocketUrl = `https://${rawSocketUrl}`;
-    }
-    const newSocket = io(rawSocketUrl, {
+    const socketUrl = getSocketHost();
+    const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
     });
 

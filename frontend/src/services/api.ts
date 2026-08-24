@@ -1,8 +1,27 @@
-let rawHost = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:5000').trim();
-if (rawHost && !rawHost.startsWith('http://') && !rawHost.startsWith('https://')) {
-  rawHost = `https://${rawHost}`;
+function getApiHost(): string {
+  if (typeof window !== 'undefined') {
+    const customHost = localStorage.getItem('h02_api_url');
+    if (customHost) return customHost;
+  }
+
+  let envHost = ((import.meta as any).env?.VITE_API_URL || '').trim();
+  if (envHost) {
+    if (!envHost.startsWith('http://') && !envHost.startsWith('https://')) {
+      envHost = `https://${envHost}`;
+    }
+    return envHost;
+  }
+
+  if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
+    const backendHost = window.location.hostname.replace('h02-frontend', 'h02-backend');
+    return `https://${backendHost}`;
+  }
+
+  return 'http://localhost:5000';
 }
-const BASE_URL = `${rawHost.replace(/\/$/, '')}/api`;
+
+const API_HOST = getApiHost();
+const BASE_URL = `${API_HOST.replace(/\/$/, '')}/api`;
 
 function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem('h02_token');
