@@ -5,10 +5,10 @@
   "scripts": {
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
-    "render-build": "npm install && prisma generate && prisma db push && npm run seed && tsc",
+    "render-build": "npx prisma generate --schema=../prisma/schema.prisma && npx prisma db push --schema=../prisma/schema.prisma && npx tsx src/seed.ts && tsc",
     "start": "node dist/app.js",
-    "db:push": "prisma db push",
-    "db:generate": "prisma generate",
+    "db:push": "prisma db push --schema=../prisma/schema.prisma",
+    "db:generate": "prisma generate --schema=../prisma/schema.prisma",
     "seed": "tsx src/seed.ts",
     "test": "vitest run"
   },
@@ -20,17 +20,17 @@
     "dotenv": "^16.4.5",
     "fastify": "^4.26.2",
     "jsonwebtoken": "^9.0.2",
-    "socket.io": "^4.7.5"
+    "prisma": "^5.14.0",
+    "socket.io": "^4.7.5",
+    "tsx": "^4.10.3",
+    "typescript": "^5.4.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.12.12",
     "@types/supertest": "^6.0.2",
-    "prisma": "^5.14.0",
     "supertest": "^7.0.0",
-    "tsx": "^4.10.3",
-    "typescript": "^5.4.5",
     "vitest": "^1.6.0"
   },
   "prisma": {

@@ -8,7 +8,7 @@ services:
     region: singapore # Options: oregon, frankfurt, singapore, ohio
     plan: free
     rootDir: backend
-    buildCommand: npm run render-build
+    buildCommand: npm install --include=dev && npm run render-build
     startCommand: npm start
     envVars:
       - key: PORT
