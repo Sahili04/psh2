@@ -33,7 +33,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: h02-backend
-          property: host
+        value: https://h02-backend.onrender.com

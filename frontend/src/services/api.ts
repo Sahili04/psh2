@@ -6,6 +6,9 @@ function getApiHost(): string {
 
   let envHost = ((import.meta as any).env?.VITE_API_URL || '').trim();
   if (envHost) {
+    if (!envHost.includes('.')) {
+      envHost = `${envHost}.onrender.com`;
+    }
     if (!envHost.startsWith('http://') && !envHost.startsWith('https://')) {
       envHost = `https://${envHost}`;
     }
