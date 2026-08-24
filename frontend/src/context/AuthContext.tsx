@@ -37,6 +37,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password = 'password123') => {
     const res = await api.login(email, password);
+    if (!res || !res.user) {
+      throw new Error(res?.error || 'Invalid credentials or backend server starting up. Please try again.');
+    }
     localStorage.setItem('h02_token', res.token);
     setToken(res.token);
     setUser(res.user);
@@ -45,6 +48,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const registerPatient = async (data: any) => {
     const res = await api.registerPatient(data);
+    if (!res || !res.user) {
+      throw new Error(res?.error || 'Registration failed or backend server starting up. Please try again.');
+    }
     localStorage.setItem('h02_token', res.token);
     setToken(res.token);
     setUser(res.user);

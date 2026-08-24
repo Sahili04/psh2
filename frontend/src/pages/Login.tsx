@@ -59,6 +59,9 @@ export function Login() {
     setErrorMsg('');
     try {
       const user = await login(email, password);
+      if (!user || !user.role) {
+        throw new Error('Server is currently spinning up. Please try again in 5 seconds.');
+      }
       redirectRole(user.role);
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid email or password. Please try again.');
@@ -81,6 +84,9 @@ export function Login() {
         phone: regPhone,
         bloodGroup: regBlood,
       });
+      if (!user || !user.role) {
+        throw new Error('Server is currently spinning up. Please try again in 5 seconds.');
+      }
       redirectRole(user.role);
     } catch (err: any) {
       setErrorMsg(err.message || 'Registration failed');
