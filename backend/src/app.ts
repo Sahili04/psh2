@@ -4,6 +4,9 @@ import { Server as SocketIOServer } from 'socket.io';
 import { registerApiRoutes } from './routes/apiRoutes.js';
 import { initBroadcaster } from './websocket/broadcaster.js';
 import { PORT } from './config/env.js';
+import fastifyStatic from '@fastify/static';
+import path from 'path';
+import fs from 'fs';
 
 const fastify = Fastify({ logger: true });
 
@@ -16,6 +19,24 @@ async function startServer() {
   });
 
   await registerApiRoutes(fastify);
+
+  const frontendDist = path.resolve(process.cwd(), '../frontend/dist');
+  const altDist = path.resolve(process.cwd(), 'frontend/dist');
+  const targetDist = fs.existsSync(frontendDist) ? frontendDist : fs.existsSync(altDist) ? altDist : null;
+
+  if (targetDist) {
+    await fastify.register(fastifyStatic, {
+      root: targetDist,
+      prefix: '/',
+    });
+
+    fastify.setNotFoundHandler((request, reply) => {
+      if (request.raw.url && !request.raw.url.startsWith('/api')) {
+        return (reply as any).sendFile('index.html');
+      }
+      return reply.status(404).send({ error: 'Not Found' });
+    });
+  }
 
   await fastify.ready();
 
