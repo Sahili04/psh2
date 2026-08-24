@@ -163,8 +163,47 @@ export async function getUsersHandler(request: FastifyRequest, reply: FastifyRep
   return reply.send(users);
 }
 
+export async function createDepartmentAdminHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { name, email, password, departmentId, organizationId } = request.body as any;
+
+  if (!name || !email || !departmentId) {
+    return reply.status(400).send({ error: 'Name, email, and departmentId are required' });
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return reply.status(400).send({ error: 'An account with this email already exists' });
+  }
+
+  const genPassword = password || 'DeptAdmin2026!';
+  const passwordHash = await bcrypt.hash(genPassword, 10);
+
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email,
+      passwordHash,
+      role: 'DEPARTMENT_ADMIN',
+      departmentId,
+      organizationId: organizationId || null,
+    },
+    include: { department: true },
+  });
+
+  return reply.send({
+    message: `Department Admin account created for ${user.name}!`,
+    user,
+    credentials: {
+      email: user.email,
+      password: genPassword,
+      role: 'DEPARTMENT_ADMIN',
+      department: user.department?.name,
+    },
+  });
+}
+
 export async function createStaffHandler(request: FastifyRequest, reply: FastifyReply) {
-  const { name, email, password, role, departmentId, specialization, licenseNumber } = request.body as any;
+  const { name, email, password, role, departmentId, organizationId, specialization, licenseNumber } = request.body as any;
 
   if (!name || !email || !role) {
     return reply.status(400).send({ error: 'Name, email, and role are required' });
@@ -175,7 +214,8 @@ export async function createStaffHandler(request: FastifyRequest, reply: Fastify
     return reply.status(400).send({ error: 'Email already registered' });
   }
 
-  const passwordHash = await bcrypt.hash(password || 'password123', 10);
+  const genPassword = password || 'StaffPass2026!';
+  const passwordHash = await bcrypt.hash(genPassword, 10);
 
   const user = await prisma.user.create({
     data: {
@@ -184,6 +224,7 @@ export async function createStaffHandler(request: FastifyRequest, reply: Fastify
       passwordHash,
       role,
       departmentId: departmentId || null,
+      organizationId: organizationId || null,
     },
   });
 
@@ -192,7 +233,7 @@ export async function createStaffHandler(request: FastifyRequest, reply: Fastify
       data: {
         userId: user.id,
         specialization: specialization || 'General Medicine',
-        licenseNumber: licenseNumber || `LIC-${Math.floor(1000 + Math.random() * 9000)}`,
+        licenseNumber: licenseNumber || `LIC-${Math.floor(10000 + Math.random() * 90000)}`,
         departmentId,
       },
     });
@@ -205,7 +246,15 @@ export async function createStaffHandler(request: FastifyRequest, reply: Fastify
     });
   }
 
-  return reply.send({ message: 'User created successfully', user });
+  return reply.send({
+    message: `${role} account created successfully!`,
+    user,
+    credentials: {
+      email: user.email,
+      password: genPassword,
+      role,
+    },
+  });
 }
 
 export async function deleteUserHandler(request: FastifyRequest, reply: FastifyReply) {

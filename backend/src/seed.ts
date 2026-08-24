@@ -25,6 +25,7 @@ async function main() {
   await prisma.admission.deleteMany();
   await prisma.appointment.deleteMany();
   await prisma.operationTheatre.deleteMany();
+  await prisma.equipmentSurvey.deleteMany();
   await prisma.equipment.deleteMany();
   await prisma.bed.deleteMany();
   await prisma.nurse.deleteMany();
@@ -32,33 +33,68 @@ async function main() {
   await prisma.patient.deleteMany();
   await prisma.user.deleteMany();
   await prisma.department.deleteMany();
+  await prisma.organization.deleteMany();
 
   const passwordHash = await bcrypt.hash('password123', 10);
 
+  // 0. Create Default Authorized Hospital / Organization
+  const mainOrg = await prisma.organization.create({
+    data: {
+      name: 'MetroHealth Central Hospital',
+      code: 'HOSP-001',
+      registrationNumber: 'REG-METRO-2026',
+      email: 'contact@metrohealth.org',
+      phone: '+1-800-METRO-MED',
+      address: '100 Healthcare Boulevard, Suite 500',
+      city: 'Metropolis',
+      hospitalType: 'MULTI_SPECIALTY',
+      status: 'APPROVED',
+      superAdminName: 'Super Admin Control',
+      superAdminEmail: 'superadmin@hospital.com',
+    },
+  });
+
+  // Also seed a Pending Organization Request for testing Platform Owner approval
+  await prisma.organization.create({
+    data: {
+      name: 'Apex Trauma & Cardiac Center',
+      code: 'HOSP-4099',
+      registrationNumber: 'REG-APEX-9988',
+      email: 'info@apextrauma.org',
+      phone: '+1-888-APEX-CARE',
+      address: '750 Emergency Expressway',
+      city: 'Gotham City',
+      hospitalType: 'CARDIAC_TRAUMA_SPECIALTY',
+      status: 'PENDING',
+      superAdminName: 'Dr. Alexander Vance (Director)',
+      superAdminEmail: 'vance@apextrauma.org',
+    },
+  });
+
   // 1. Create 22 Multi-Specialty Departments
   const deptData = [
-    { name: 'Emergency & Trauma', specialty: 'Emergency Medicine', floor: 1, capacity: 30 },
-    { name: 'General Medicine', specialty: 'Internal Medicine', floor: 1, capacity: 50 },
-    { name: 'Cardiology Unit', specialty: 'Cardiology', floor: 2, capacity: 40 },
-    { name: 'Neurology Department', specialty: 'Neurology', floor: 3, capacity: 25 },
-    { name: 'Orthopedics Center', specialty: 'Orthopedics', floor: 2, capacity: 35 },
-    { name: 'Gynecology & Obstetrics', specialty: 'Obstetrics & Gynecology', floor: 3, capacity: 30 },
-    { name: 'Pediatrics Ward', specialty: 'Pediatrics', floor: 4, capacity: 30 },
-    { name: 'Surgical Suite', specialty: 'General Surgery', floor: 3, capacity: 30 },
-    { name: 'Oncology Center', specialty: 'Oncology', floor: 5, capacity: 20 },
-    { name: 'Gastroenterology', specialty: 'Gastroenterology', floor: 2, capacity: 20 },
-    { name: 'Pulmonology', specialty: 'Pulmonology', floor: 3, capacity: 20 },
-    { name: 'Nephrology', specialty: 'Nephrology', floor: 4, capacity: 20 },
-    { name: 'Urology', specialty: 'Urology', floor: 2, capacity: 15 },
-    { name: 'ENT (Ear Nose Throat)', specialty: 'Otolaryngology', floor: 1, capacity: 15 },
-    { name: 'Ophthalmology', specialty: 'Ophthalmology', floor: 1, capacity: 15 },
-    { name: 'Dermatology', specialty: 'Dermatology', floor: 1, capacity: 15 },
-    { name: 'Psychiatry', specialty: 'Psychiatry', floor: 5, capacity: 20 },
-    { name: 'Intensive Care Unit (ICU)', specialty: 'Critical Care', floor: 4, capacity: 20 },
-    { name: 'Radiology & Imaging', specialty: 'Radiology', floor: 1, capacity: 15 },
-    { name: 'Pathology & Laboratory', specialty: 'Pathology', floor: 1, capacity: 15 },
-    { name: 'Anesthesiology', specialty: 'Anesthesiology', floor: 3, capacity: 15 },
-    { name: 'Physiotherapy', specialty: 'Physical Therapy', floor: 1, capacity: 20 },
+    { name: 'Emergency & Trauma', specialty: 'Emergency Medicine', floor: 1, capacity: 30, organizationId: mainOrg.id },
+    { name: 'General Medicine', specialty: 'Internal Medicine', floor: 1, capacity: 50, organizationId: mainOrg.id },
+    { name: 'Cardiology Unit', specialty: 'Cardiology', floor: 2, capacity: 40, organizationId: mainOrg.id },
+    { name: 'Neurology Department', specialty: 'Neurology', floor: 3, capacity: 25, organizationId: mainOrg.id },
+    { name: 'Orthopedics Center', specialty: 'Orthopedics', floor: 2, capacity: 35, organizationId: mainOrg.id },
+    { name: 'Gynecology & Obstetrics', specialty: 'Obstetrics & Gynecology', floor: 3, capacity: 30, organizationId: mainOrg.id },
+    { name: 'Pediatrics Ward', specialty: 'Pediatrics', floor: 4, capacity: 30, organizationId: mainOrg.id },
+    { name: 'Surgical Suite', specialty: 'General Surgery', floor: 3, capacity: 30, organizationId: mainOrg.id },
+    { name: 'Oncology Center', specialty: 'Oncology', floor: 5, capacity: 20, organizationId: mainOrg.id },
+    { name: 'Gastroenterology', specialty: 'Gastroenterology', floor: 2, capacity: 20, organizationId: mainOrg.id },
+    { name: 'Pulmonology', specialty: 'Pulmonology', floor: 3, capacity: 20, organizationId: mainOrg.id },
+    { name: 'Nephrology', specialty: 'Nephrology', floor: 4, capacity: 20, organizationId: mainOrg.id },
+    { name: 'Urology', specialty: 'Urology', floor: 2, capacity: 15, organizationId: mainOrg.id },
+    { name: 'ENT (Ear Nose Throat)', specialty: 'Otolaryngology', floor: 1, capacity: 15, organizationId: mainOrg.id },
+    { name: 'Ophthalmology', specialty: 'Ophthalmology', floor: 1, capacity: 15, organizationId: mainOrg.id },
+    { name: 'Dermatology', specialty: 'Dermatology', floor: 1, capacity: 15, organizationId: mainOrg.id },
+    { name: 'Psychiatry', specialty: 'Psychiatry', floor: 5, capacity: 20, organizationId: mainOrg.id },
+    { name: 'Intensive Care Unit (ICU)', specialty: 'Critical Care', floor: 4, capacity: 20, organizationId: mainOrg.id },
+    { name: 'Radiology & Imaging', specialty: 'Radiology', floor: 1, capacity: 15, organizationId: mainOrg.id },
+    { name: 'Pathology & Laboratory', specialty: 'Pathology', floor: 1, capacity: 15, organizationId: mainOrg.id },
+    { name: 'Anesthesiology', specialty: 'Anesthesiology', floor: 3, capacity: 15, organizationId: mainOrg.id },
+    { name: 'Physiotherapy', specialty: 'Physical Therapy', floor: 1, capacity: 20, organizationId: mainOrg.id },
   ];
 
   const depts: any = {};
@@ -67,27 +103,28 @@ async function main() {
     depts[d.name] = created;
   }
 
-  // 2. Create Super Admin + Department Admins
+  // 2. Create Software Platform Owner + Super Admin + Department Admins
   const demoUsers = [
-    { name: 'Super Admin Control', email: 'superadmin@hospital.com', role: Role.SUPER_ADMIN, dept: null },
-    { name: 'Emergency Dept Admin', email: 'admin.emergency@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Emergency & Trauma'].id },
-    { name: 'Cardiology Dept Admin', email: 'admin.cardiology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Cardiology Unit'].id },
-    { name: 'Neurology Dept Admin', email: 'admin.neurology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Neurology Department'].id },
-    { name: 'Orthopedics Dept Admin', email: 'admin.orthopedics@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Orthopedics Center'].id },
-    { name: 'Pediatrics Dept Admin', email: 'admin.pediatrics@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Pediatrics Ward'].id },
-    { name: 'Oncology Dept Admin', email: 'admin.oncology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Oncology Center'].id },
-    { name: 'General Medicine Admin', email: 'admin.general@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['General Medicine'].id },
-    { name: 'Surgical Suite Admin', email: 'admin.surgery@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Surgical Suite'].id },
-    { name: 'ICU Department Admin', email: 'deptadmin@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Intensive Care Unit (ICU)'].id },
-    { name: 'Radiology Dept Admin', email: 'admin.radiology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Radiology & Imaging'].id },
+    { name: 'Software Platform Owner', email: 'owner@hospitalecho.com', role: 'PLATFORM_OWNER', dept: null, org: null },
+    { name: 'Super Admin Control', email: 'superadmin@hospital.com', role: Role.SUPER_ADMIN, dept: null, org: mainOrg.id },
+    { name: 'Emergency Dept Admin', email: 'admin.emergency@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Emergency & Trauma'].id, org: mainOrg.id },
+    { name: 'Cardiology Dept Admin', email: 'admin.cardiology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Cardiology Unit'].id, org: mainOrg.id },
+    { name: 'Neurology Dept Admin', email: 'admin.neurology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Neurology Department'].id, org: mainOrg.id },
+    { name: 'Orthopedics Dept Admin', email: 'admin.orthopedics@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Orthopedics Center'].id, org: mainOrg.id },
+    { name: 'Pediatrics Dept Admin', email: 'admin.pediatrics@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Pediatrics Ward'].id, org: mainOrg.id },
+    { name: 'Oncology Dept Admin', email: 'admin.oncology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Oncology Center'].id, org: mainOrg.id },
+    { name: 'General Medicine Admin', email: 'admin.general@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['General Medicine'].id, org: mainOrg.id },
+    { name: 'Surgical Suite Admin', email: 'admin.surgery@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Surgical Suite'].id, org: mainOrg.id },
+    { name: 'ICU Department Admin', email: 'deptadmin@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
+    { name: 'Radiology Dept Admin', email: 'admin.radiology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Radiology & Imaging'].id, org: mainOrg.id },
 
     // Staff & Patients
-    { name: 'Dr. Sarah Jenkins', email: 'doctor@hospital.com', role: Role.DOCTOR, dept: depts['Intensive Care Unit (ICU)'].id },
-    { name: 'Dr. Robert Chen', email: 'doctor2@hospital.com', role: Role.DOCTOR, dept: depts['Emergency & Trauma'].id },
-    { name: 'Nurse Emily Watson', email: 'nurse@hospital.com', role: Role.NURSE, dept: depts['Intensive Care Unit (ICU)'].id },
-    { name: 'Reception Manager Michael', email: 'reception@hospital.com', role: Role.RECEPTIONIST, dept: depts['General Medicine'].id },
-    { name: 'Resource Mgr David', email: 'resource@hospital.com', role: Role.RESOURCE_MANAGER, dept: depts['Intensive Care Unit (ICU)'].id },
-    { name: 'Patient John Doe', email: 'patient@hospital.com', role: Role.PATIENT, dept: null },
+    { name: 'Dr. Sarah Jenkins', email: 'doctor@hospital.com', role: Role.DOCTOR, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
+    { name: 'Dr. Robert Chen', email: 'doctor2@hospital.com', role: Role.DOCTOR, dept: depts['Emergency & Trauma'].id, org: mainOrg.id },
+    { name: 'Nurse Emily Watson', email: 'nurse@hospital.com', role: Role.NURSE, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
+    { name: 'Reception Manager Michael', email: 'reception@hospital.com', role: Role.RECEPTIONIST, dept: depts['General Medicine'].id, org: mainOrg.id },
+    { name: 'Resource Mgr David', email: 'resource@hospital.com', role: Role.RESOURCE_MANAGER, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
+    { name: 'Patient John Doe', email: 'patient@hospital.com', role: Role.PATIENT, dept: null, org: mainOrg.id },
   ];
 
   const users: Record<string, any> = {};
@@ -99,6 +136,7 @@ async function main() {
         passwordHash,
         role: u.role,
         departmentId: u.dept,
+        organizationId: u.org || null,
       },
     });
     users[u.email] = created;
@@ -278,17 +316,36 @@ async function main() {
     beds.push(b);
   }
 
-  // 7. Create Equipment
+  // 7. Create Equipment with Machine Health Parameters & Calibration Inspection Dates
+  const now = new Date();
+  const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const overdueDate = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+
   const equipmentData = [
-    { name: 'ICU Ventilator Alpha', type: 'VENTILATOR', serialNumber: 'VENT-001', dept: icuDept, status: EquipmentStatus.IN_USE, currentPatientId: patients[0].id },
-    { name: 'ICU Ventilator Beta', type: 'VENTILATOR', serialNumber: 'VENT-002', dept: icuDept, status: EquipmentStatus.RESERVED },
-    { name: 'Cardiac Defibrillator X1', type: 'DEFIBRILLATOR', serialNumber: 'DEFIB-001', dept: depts['Cardiology Unit'], status: EquipmentStatus.AVAILABLE },
-    { name: 'Portable Ultrasound Scan', type: 'ULTRASOUND', serialNumber: 'ULT-001', dept: depts['Radiology & Imaging'], status: EquipmentStatus.AVAILABLE },
-    { name: 'Infusion Pump Tower A', type: 'INFUSION_PUMP', serialNumber: 'INF-001', dept: icuDept, status: EquipmentStatus.IN_USE },
+    {
+      name: 'ICU Ventilator Alpha', type: 'VENTILATOR', serialNumber: 'VENT-001', dept: icuDept, status: EquipmentStatus.IN_USE, currentPatientId: patients[0].id,
+      healthScore: 98, calibrationStatus: 'CALIBRATED', batteryLevel: 94, sensorAccuracy: '99.8%', lastSurveyDate: now, nextSurveyDate: nextWeek, surveyedByDoctorName: 'Marcus Vance (ICU Admin)', surveyNotes: 'Turbine pressure flow calibrated and patient sensor accurate.'
+    },
+    {
+      name: 'ICU Ventilator Beta', type: 'VENTILATOR', serialNumber: 'VENT-002', dept: icuDept, status: EquipmentStatus.RESERVED,
+      healthScore: 82, calibrationStatus: 'DUE_SOON', batteryLevel: 78, sensorAccuracy: '97.2%', lastSurveyDate: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000), nextSurveyDate: now, surveyedByDoctorName: 'Marcus Vance (ICU Admin)', surveyNotes: 'Oxygen sensor recalibration due for upcoming ICU allocation.'
+    },
+    {
+      name: 'Cardiac Defibrillator X1', type: 'DEFIBRILLATOR', serialNumber: 'DEFIB-001', dept: depts['Cardiology Unit'], status: EquipmentStatus.AVAILABLE,
+      healthScore: 65, calibrationStatus: 'OVERDUE', batteryLevel: 45, sensorAccuracy: '94.0%', lastSurveyDate: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000), nextSurveyDate: overdueDate, surveyedByDoctorName: 'Elena Rostova (Cardiology Admin)', surveyNotes: 'Battery discharge test needed immediately.'
+    },
+    {
+      name: 'Portable Ultrasound Scan', type: 'ULTRASOUND', serialNumber: 'ULT-001', dept: depts['Radiology & Imaging'], status: EquipmentStatus.AVAILABLE,
+      healthScore: 100, calibrationStatus: 'CALIBRATED', batteryLevel: 100, sensorAccuracy: '99.9%', lastSurveyDate: now, nextSurveyDate: nextWeek, surveyedByDoctorName: 'Arthur Dent (Radiology Admin)', surveyNotes: 'Doppler transducer frequency verified.'
+    },
+    {
+      name: 'Infusion Pump Tower A', type: 'INFUSION_PUMP', serialNumber: 'INF-001', dept: icuDept, status: EquipmentStatus.IN_USE,
+      healthScore: 90, calibrationStatus: 'CALIBRATED', batteryLevel: 88, sensorAccuracy: '98.5%', lastSurveyDate: now, nextSurveyDate: nextWeek, surveyedByDoctorName: 'Marcus Vance (ICU Admin)', surveyNotes: 'Micro-drip rate verified for ICU automated medication.'
+    },
   ];
 
   for (const eq of equipmentData) {
-    await prisma.equipment.create({
+    const createdEq = await prisma.equipment.create({
       data: {
         name: eq.name,
         type: eq.type,
@@ -297,6 +354,28 @@ async function main() {
         location: `Floor ${eq.dept.floor}`,
         status: eq.status,
         currentPatientId: eq.currentPatientId || null,
+        healthScore: eq.healthScore,
+        calibrationStatus: eq.calibrationStatus,
+        batteryLevel: eq.batteryLevel,
+        sensorAccuracy: eq.sensorAccuracy,
+        lastSurveyDate: eq.lastSurveyDate,
+        nextSurveyDate: eq.nextSurveyDate,
+        surveyedByDoctorName: eq.surveyedByDoctorName,
+        surveyNotes: eq.surveyNotes,
+      },
+    });
+
+    await prisma.equipmentSurvey.create({
+      data: {
+        equipmentId: createdEq.id,
+        doctorName: eq.surveyedByDoctorName,
+        healthScore: eq.healthScore,
+        calibrationStatus: eq.calibrationStatus,
+        batteryLevel: eq.batteryLevel,
+        sensorAccuracy: eq.sensorAccuracy,
+        surveyDate: eq.lastSurveyDate,
+        nextSurveyDate: eq.nextSurveyDate,
+        notes: eq.surveyNotes,
       },
     });
   }

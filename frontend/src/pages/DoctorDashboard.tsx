@@ -9,6 +9,7 @@ import {
   ClipboardList, Search, RefreshCw, Send, CheckSquare, Layers
 } from 'lucide-react';
 
+
 export function DoctorDashboard() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -59,10 +60,12 @@ export function DoctorDashboard() {
   const [testType, setTestType] = useState('Cardiac Troponin I & Lipid Profile');
   const [testPriority, setTestPriority] = useState('EMERGENCY');
 
-  // Admission / Bed Lock Form (H-02 Workflow)
+  // Admission / Bed Lock Form
   const [admitDeptId, setAdmitDeptId] = useState('');
   const [admitBedId, setAdmitBedId] = useState('');
   const [admitPriority, setAdmitPriority] = useState('EMERGENCY');
+  const [admitTxId, setAdmitTxId] = useState('');
+  const [isSubmittingAdmit, setIsSubmittingAdmit] = useState(false);
 
   // Transfer Form
   const [targetBedId, setTargetBedId] = useState('');
@@ -165,8 +168,15 @@ export function DoctorDashboard() {
 
   const handleAdmitPatient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPatient || !admitBedId) return;
+    if (!selectedPatient || !admitBedId || isSubmittingAdmit) return;
+
+    setIsSubmittingAdmit(true);
+    const currentTxId = admitTxId || crypto.randomUUID();
+
     try {
+      const selectedBedObj = beds.find((b) => b.id === admitBedId);
+      const bedNumberStr = selectedBedObj?.bedNumber || 'Assigned Bed';
+
       const res = await api.admitPatient({
         patientId: selectedPatient.id,
         doctorId: user?.doctorId || 'DOC-01',
@@ -175,12 +185,27 @@ export function DoctorDashboard() {
         priority: admitPriority,
         reason: `Admitted by ${user?.name || 'Doctor'} - ${diagnosis}`,
         userId: user?.id,
+        transactionNumber: currentTxId,
       });
-      setMsg(`SUCCESS: Bed Locked! ICU/Ward Bed Request APPROVED. Transaction #${res.txResult?.transaction?.transactionNumber || 'TX-8001'} COMMITTED.`);
+
+      if (res.isDuplicate) {
+        setMsg('Request already completed.');
+      } else {
+        setMsg(`Patient admitted successfully. Bed assigned: ${bedNumberStr}`);
+      }
+
       setShowAdmitModal(false);
       loadData();
     } catch (err: any) {
-      setMsg(`ERROR: ${err.message}`);
+      if (err.message && err.message.includes('already in use')) {
+        setMsg('Bed is already in use.');
+      } else if (err.message && err.message.includes('priority')) {
+        setMsg('Another patient has higher priority.');
+      } else {
+        setMsg(err.message || 'Could not complete the request. No changes were made.');
+      }
+    } finally {
+      setIsSubmittingAdmit(false);
     }
   };
 
@@ -549,7 +574,10 @@ export function DoctorDashboard() {
               <p className="text-xs text-slate-500">Request bed locks across ICU, Emergency, and Ward units</p>
             </div>
             <button
-              onClick={() => setShowAdmitModal(true)}
+              onClick={() => {
+                setAdmitTxId(crypto.randomUUID());
+                setShowAdmitModal(true);
+              }}
               className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl flex items-center gap-1.5"
             >
               <Bed className="w-4 h-4" /> Request Bed Admission
@@ -639,6 +667,8 @@ export function DoctorDashboard() {
           </div>
         </div>
       )}
+
+
       </div>
 
       {/* MODAL 1: PRESCRIPTION */}
@@ -752,10 +782,19 @@ export function DoctorDashboard() {
                 </select>
               </div>
               <div className="flex gap-2 pt-2">
-                <button type="submit" className="flex-1 bg-emerald-600 text-white font-bold py-2.5 rounded-lg shadow-sm">
-                  Lock Resource & Admit Patient 🛏️
+                <button
+                  type="submit"
+                  disabled={isSubmittingAdmit}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white font-bold py-2.5 rounded-lg shadow-sm transition"
+                >
+                  {isSubmittingAdmit ? 'Admitting...' : 'Admit Patient'}
                 </button>
-                <button type="button" onClick={() => setShowAdmitModal(false)} className="px-4 bg-slate-100 text-slate-700 rounded-lg font-bold">
+                <button
+                  type="button"
+                  onClick={() => setShowAdmitModal(false)}
+                  disabled={isSubmittingAdmit}
+                  className="px-4 bg-slate-100 text-slate-700 rounded-lg font-bold"
+                >
                   Cancel
                 </button>
               </div>

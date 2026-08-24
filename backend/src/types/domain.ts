@@ -32,6 +32,13 @@ export const EquipmentStatus = {
   MAINTENANCE: 'MAINTENANCE',
 } as const;
 
+export const CalibrationStatus = {
+  CALIBRATED: 'CALIBRATED',
+  DUE_SOON: 'DUE_SOON',
+  OVERDUE: 'OVERDUE',
+  MAINTENANCE_REQUIRED: 'MAINTENANCE_REQUIRED',
+} as const;
+
 export const OTStatus = {
   AVAILABLE: 'AVAILABLE',
   SCHEDULED: 'SCHEDULED',

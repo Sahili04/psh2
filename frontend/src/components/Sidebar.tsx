@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Users, Stethoscope, Bed, Cpu, Volume2, Clock, FileText,
   Calendar, UserPlus, GitCommit, AlertTriangle, Activity, ShieldCheck,
-  Zap, HeartPulse, CheckSquare, Building, UserCheck, Pill, TestTube, ArrowRightLeft, LogOut
+  Zap, HeartPulse, CheckSquare, Building, UserCheck, Pill, TestTube, ArrowRightLeft, LogOut, Wrench
 } from 'lucide-react';
 
 export function Sidebar() {
@@ -13,6 +13,18 @@ export function Sidebar() {
 
   const getNavSections = () => {
     switch (role) {
+      case 'PLATFORM_OWNER':
+        return [
+          {
+            title: '👑 SOFTWARE OWNER GOVERNANCE',
+            items: [
+              { label: '1. Executive Ecosystem', path: '/platform-owner?tab=overview', icon: ShieldCheck, badge: 'ECOSYSTEM' },
+              { label: '2. Hospital Registration Requests', path: '/platform-owner?tab=pending', icon: Building, badge: 'APPROVALS' },
+              { label: '3. Authorized Hospitals', path: '/platform-owner?tab=approved', icon: Users },
+            ],
+          },
+        ];
+
       case 'SUPER_ADMIN':
         return [
           {
@@ -46,8 +58,9 @@ export function Sidebar() {
               { label: '2. Unit Staff Roster', path: '/admin?tab=staff', icon: Stethoscope },
               { label: '3. Unit Patients', path: '/admin?tab=patients', icon: Users },
               { label: '4. Beds & Inventory', path: '/admin?tab=resources', icon: Bed },
-              { label: '5. Unit Appointments', path: '/admin?tab=scheduling', icon: Calendar },
-              { label: '6. H-02 Requests', path: '/admin?tab=h02_requests', icon: Zap },
+              { label: '5. Instrument & Machine Health', path: '/admin?tab=equipment_health', icon: Wrench, badge: 'SURVEY' },
+              { label: '6. Unit Appointments', path: '/admin?tab=scheduling', icon: Calendar },
+              { label: '7. H-02 Requests', path: '/admin?tab=h02_requests', icon: Zap },
             ],
           },
           {

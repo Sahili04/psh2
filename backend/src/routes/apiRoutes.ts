@@ -1,12 +1,16 @@
 import { FastifyInstance } from 'fastify';
 import {
   loginHandler, registerPatientHandler, meHandler, getUsersHandler,
-  createStaffHandler, deleteUserHandler
+  createStaffHandler, createDepartmentAdminHandler, deleteUserHandler
 } from '../controllers/authController.js';
+import {
+  registerOrganizationHandler, checkOrganizationStatusHandler, getAllOrganizationsHandler,
+  getPendingOrganizationsHandler, approveOrganizationHandler, rejectOrganizationHandler
+} from '../controllers/organizationController.js';
 import {
   getBedsHandler, createBedHandler, updateBedStatusHandler, reserveBedHandler,
   getDoctorsHandler, updateDoctorStatusHandler, getEquipmentHandler, createEquipmentHandler,
-  updateEquipmentStatusHandler, getOTsHandler, updateOTStatusHandler, getDepartmentsHandler, createDepartmentHandler
+  updateEquipmentStatusHandler, surveyEquipmentHandler, getEquipmentSurveysHandler, getOTsHandler, updateOTStatusHandler, getDepartmentsHandler, createDepartmentHandler
 } from '../controllers/resourceController.js';
 import {
   getPatientsHandler, createPatientHandler, getPatientProfileHandler, admitPatientHandler,
@@ -21,19 +25,27 @@ import {
 import { runSimulationScenarioHandler } from '../controllers/simulationController.js';
 
 export async function registerApiRoutes(fastify: FastifyInstance) {
+  // Organization / Hospital Registration & Platform Owner Control
+  fastify.post('/api/organizations/register', registerOrganizationHandler);
+  fastify.get('/api/organizations/status', checkOrganizationStatusHandler);
+  fastify.get('/api/organizations', getAllOrganizationsHandler);
+  fastify.get('/api/organizations/pending', getPendingOrganizationsHandler);
+  fastify.post('/api/organizations/:id/approve', approveOrganizationHandler);
+  fastify.post('/api/organizations/:id/reject', rejectOrganizationHandler);
+
   // Auth & User Access Control
   fastify.post('/api/auth/login', loginHandler);
   fastify.post('/api/auth/register', registerPatientHandler);
   fastify.get('/api/auth/me', meHandler);
   fastify.get('/api/auth/users', getUsersHandler);
   fastify.post('/api/auth/users', createStaffHandler);
+  fastify.post('/api/auth/department-admins', createDepartmentAdminHandler);
   fastify.delete('/api/auth/users/:id', deleteUserHandler);
 
-  // Resources & Departments
+  // Departments & Resources
   fastify.get('/api/resources/departments', getDepartmentsHandler);
-  fastify.post('/api/resources/departments', createDepartmentHandler);
-  fastify.get('/api/departments', getDepartmentsHandler);
   fastify.post('/api/departments', createDepartmentHandler);
+
   fastify.get('/api/resources/beds', getBedsHandler);
   fastify.post('/api/resources/beds', createBedHandler);
   fastify.patch('/api/resources/beds/:id', updateBedStatusHandler);
@@ -45,6 +57,8 @@ export async function registerApiRoutes(fastify: FastifyInstance) {
   fastify.get('/api/resources/equipment', getEquipmentHandler);
   fastify.post('/api/resources/equipment', createEquipmentHandler);
   fastify.patch('/api/resources/equipment/:id', updateEquipmentStatusHandler);
+  fastify.post('/api/resources/equipment/:id/survey', surveyEquipmentHandler);
+  fastify.get('/api/resources/equipment/:id/surveys', getEquipmentSurveysHandler);
 
   fastify.get('/api/resources/ots', getOTsHandler);
   fastify.patch('/api/resources/ots/:id', updateOTStatusHandler);

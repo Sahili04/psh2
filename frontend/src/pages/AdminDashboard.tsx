@@ -8,6 +8,8 @@ import {
   Zap, Clock, CheckCircle2, XCircle, ArrowUpRight, Plus, UserPlus, Shield, ArrowRightLeft
 } from 'lucide-react';
 
+import { EquipmentMonitoringTab } from '../components/EquipmentMonitoringTab';
+
 export function AdminDashboard() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -25,7 +27,7 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Active Department Admin Tab
-  const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'patients' | 'resources' | 'scheduling' | 'h02_requests'>(tabParam || 'overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'patients' | 'resources' | 'equipment_health' | 'scheduling' | 'h02_requests'>(tabParam || 'overview');
 
   useEffect(() => {
     if (tabParam) {
@@ -35,8 +37,16 @@ export function AdminDashboard() {
 
   // Modals & Actions State
   const [showShiftModal, setShowShiftModal] = useState(false);
+  const [showProvisionModal, setShowProvisionModal] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<any>(null);
   const [shiftTime, setShiftTime] = useState('Morning (08:00 - 16:00)');
+
+  // Staff Provisioning State
+  const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffEmail, setNewStaffEmail] = useState('');
+  const [newStaffRole, setNewStaffRole] = useState<'DOCTOR' | 'NURSE'>('DOCTOR');
+  const [newStaffSpec, setNewStaffSpec] = useState('');
+  const [provisionResult, setProvisionResult] = useState<any>(null);
 
   const [showReserveBedModal, setShowReserveBedModal] = useState(false);
   const [selectedBed, setSelectedBed] = useState<any>(null);
@@ -117,6 +127,30 @@ export function AdminDashboard() {
     setMsg(`SUCCESS: Assigned ${shiftTime} shift to ${selectedStaff.user?.name || selectedStaff.name}`);
     setShowShiftModal(false);
     setSelectedStaff(null);
+  };
+
+  // --- STAFF PROVISIONING HANDLER ---
+  const handleProvisionStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await api.createStaff({
+        name: newStaffName,
+        email: newStaffEmail,
+        password: 'StaffPass2026!',
+        role: newStaffRole,
+        departmentId: currentDept.id,
+        specialization: newStaffSpec || currentDept.name,
+        licenseNumber: `LIC-${Math.floor(10000 + Math.random() * 90000)}`,
+      });
+      setProvisionResult(res);
+      setMsg(`SUCCESS: Provisioned ${newStaffRole} account for ${newStaffName}! Credentials issued.`);
+      setShowProvisionModal(false);
+      setNewStaffName('');
+      setNewStaffEmail('');
+      loadData();
+    } catch (err: any) {
+      setMsg(`ERROR: ${err.message || 'Failed to provision staff'}`);
+    }
   };
 
   // --- BED RESERVATION ACTION HANDLER ---
@@ -271,8 +305,14 @@ export function AdminDashboard() {
               <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                 <Stethoscope className="w-4 h-4 text-sky-600" /> {currentDept.name} Doctors & Nursing Roster ({deptDoctors.length} Doctors)
               </h2>
-              <p className="text-xs text-slate-500">Department Admin assigns shifts, manages workload & marks doctor availability</p>
+              <p className="text-xs text-slate-500">Department Admin provisions credentials, assigns shifts & manages workload</p>
             </div>
+            <button
+              onClick={() => setShowProvisionModal(true)}
+              className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 font-mono"
+            >
+              <UserPlus className="w-4 h-4" /> Provision Doctor / Staff Credentials
+            </button>
           </div>
 
           <div className="overflow-x-auto">
@@ -527,6 +567,11 @@ export function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* TAB FOR EQUIPMENT & INSTRUMENT HEALTH */}
+      {activeTab === 'equipment_health' && (
+        <EquipmentMonitoringTab departmentFilter={currentDept.name} />
+      )}
       </div>
 
       {/* SHIFT MODAL */}
@@ -565,9 +610,9 @@ export function AdminDashboard() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <h3 className="font-bold text-slate-900 text-base">Reserve Bed #{selectedBed?.bedNumber}</h3>
-            <form onSubmit={handleReserveBed} className="space-y-3 text-xs">
+            <form onSubmit={handleReserveBed} className="space-y-3 text-xs font-mono">
               <div>
-                <label className="text-slate-600 font-mono block mb-1">Reason for Bed Reservation</label>
+                <label className="text-slate-600 block mb-1">Reason for Bed Reservation</label>
                 <input type="text" value={reserveReason} onChange={(e) => setReserveReason(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900 font-bold" required />
               </div>
               <div className="flex gap-2 pt-2">
@@ -580,6 +625,87 @@ export function AdminDashboard() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* PROVISION STAFF CREDENTIALS MODAL */}
+      {showProvisionModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
+            <h3 className="font-extrabold text-slate-900 text-base">Provision Credentials for {currentDept.name} Staff</h3>
+            <form onSubmit={handleProvisionStaff} className="space-y-3">
+              <div>
+                <label className="text-slate-700 font-bold block mb-1">Select Role</label>
+                <select
+                  value={newStaffRole}
+                  onChange={(e) => setNewStaffRole(e.target.value as any)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold"
+                >
+                  <option value="DOCTOR">DOCTOR (Clinical Decision Maker)</option>
+                  <option value="NURSE">NURSE (Shift Nurse)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-slate-700 font-bold block mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Dr. Julian Bashir"
+                  value={newStaffName}
+                  onChange={(e) => setNewStaffName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-slate-700 font-bold block mb-1">Email Address (Login ID) *</label>
+                <input
+                  type="email"
+                  placeholder="staff@hospital.com"
+                  value={newStaffEmail}
+                  onChange={(e) => setNewStaffEmail(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
+                  required
+                />
+              </div>
+              {newStaffRole === 'DOCTOR' && (
+                <div>
+                  <label className="text-slate-700 font-bold block mb-1">Specialization</label>
+                  <input
+                    type="text"
+                    placeholder={currentDept.name}
+                    value={newStaffSpec}
+                    onChange={(e) => setNewStaffSpec(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
+                  />
+                </div>
+              )}
+              <div className="p-3 bg-sky-50 border border-sky-200 rounded-xl text-[11px] text-sky-900">
+                Initial password set to: <strong>StaffPass2026!</strong>. The staff member can use this to log in.
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="submit" className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl shadow-sm">
+                  Generate & Issue Credentials 🔑
+                </button>
+                <button type="button" onClick={() => setShowProvisionModal(false)} className="px-4 bg-slate-100 text-slate-700 rounded-xl font-bold">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PROVISIONED CREDENTIAL NOTICE */}
+      {provisionResult && (
+        <div className="fixed bottom-6 right-6 max-w-md w-full bg-slate-900 text-white p-5 rounded-2xl shadow-2xl border border-sky-400 font-mono text-xs space-y-2 z-50 animate-in fade-in slide-in-from-bottom-5">
+          <div className="font-extrabold text-sky-400 flex items-center justify-between">
+            <span>🔑 Staff Credentials Issued!</span>
+            <button onClick={() => setProvisionResult(null)} className="text-slate-400 hover:text-white">✕</button>
+          </div>
+          <div><strong>Staff Name:</strong> {provisionResult.user?.name}</div>
+          <div><strong>Login Email:</strong> {provisionResult.credentials?.email}</div>
+          <div><strong>Role / Dept:</strong> {provisionResult.credentials?.role} ({currentDept.name})</div>
+          <div><strong>Password:</strong> <span className="px-2 py-0.5 bg-slate-800 text-sky-300 font-bold rounded">{provisionResult.credentials?.password}</span></div>
         </div>
       )}
     </div>

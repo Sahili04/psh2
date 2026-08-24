@@ -63,42 +63,48 @@ export async function getPatientProfileHandler(request: FastifyRequest, reply: F
 }
 
 export async function admitPatientHandler(request: FastifyRequest, reply: FastifyReply) {
-  const { patientId, doctorId, departmentId, bedId, priority, reason, userId } = request.body as any;
+  const { patientId, doctorId, departmentId, bedId, priority, reason, userId, transactionNumber } = request.body as any;
 
-  // Execute multi-step transaction via TransactionEngine
+  // Execute multi-step atomic transaction via TransactionEngine
   const txResult = await TransactionEngine.executeTransaction({
+    transactionNumber,
     initiatedBy: userId || 'SYSTEM',
     patientId,
     type: TransactionType.PATIENT_ADMISSION,
     priority: priority || 'ROUTINE',
     resourceType: ResourceType.BED,
     resourceId: bedId,
+    doctorId,
+    departmentId,
+    reason,
   });
 
-  if (txResult.status !== 'COMMITTED') {
-    return reply.status(409).send(txResult);
+  if (txResult.isDuplicate) {
+    return reply.status(200).send({
+      txResult,
+      admission: txResult.admission,
+      isDuplicate: true,
+      userMessage: 'Request already completed.',
+      message: 'Request already completed.',
+    });
   }
 
-  // Create Admission Record
-  const admission = await prisma.admission.create({
-    data: {
-      patientId,
-      doctorId,
-      departmentId,
-      bedId,
-      status: AdmissionStatus.ADMITTED,
-      reason: reason || 'Patient Hospital Admission',
-    },
-    include: { patient: true, doctor: { include: { user: true } }, bed: true },
-  });
+  if (txResult.status !== 'COMMITTED') {
+    const userMessage =
+      txResult.status === 'ESCALATED' ? 'Bed is already in use.' : 'Could not complete the request. No changes were made.';
+    return reply.status(409).send({
+      ...txResult,
+      userMessage,
+      error: userMessage,
+    });
+  }
 
-  await prisma.patient.update({
-    where: { id: patientId },
-    data: { status: 'ADMITTED' },
-  });
+  const admission = txResult.admission;
+  if (admission) {
+    broadcastEvent('admission:created', admission);
+  }
 
-  broadcastEvent('admission:created', admission);
-  return reply.status(201).send({ txResult, admission });
+  return reply.status(201).send({ txResult, admission, userMessage: 'Patient admitted successfully.' });
 }
 
 export async function transferPatientHandler(request: FastifyRequest, reply: FastifyReply) {

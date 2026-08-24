@@ -5,6 +5,7 @@ import { SocketProvider } from './context/SocketContext';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { Login } from './pages/Login';
+import { PlatformOwnerDashboard } from './pages/PlatformOwnerDashboard';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { StaffManagementPage } from './pages/StaffManagementPage';
@@ -29,6 +30,7 @@ function RoleGuard({ allowedRoles, children }: { allowedRoles: Role[]; children:
 
   if (!allowedRoles.includes(user.role)) {
     const fallbackPath =
+      user.role === 'PLATFORM_OWNER' ? '/platform-owner' :
       user.role === 'SUPER_ADMIN' ? '/super-admin' :
       user.role === 'ADMIN' || user.role === 'DEPARTMENT_ADMIN' ? '/admin' :
       user.role === 'DOCTOR' ? '/doctor' :
@@ -61,6 +63,12 @@ function ProtectedLayout() {
         <Sidebar />
         <main className="flex-1 bg-slate-50 overflow-y-auto">
           <Routes>
+            <Route path="/platform-owner" element={
+              <RoleGuard allowedRoles={['PLATFORM_OWNER']}>
+                <PlatformOwnerDashboard />
+              </RoleGuard>
+            } />
+
             <Route path="/super-admin" element={
               <RoleGuard allowedRoles={['SUPER_ADMIN']}>
                 <SuperAdminDashboard />
@@ -153,6 +161,7 @@ function ProtectedLayout() {
 
             <Route path="*" element={
               <Navigate to={
+                user.role === 'PLATFORM_OWNER' ? '/platform-owner' :
                 user.role === 'SUPER_ADMIN' ? '/super-admin' :
                 user.role === 'ADMIN' || user.role === 'DEPARTMENT_ADMIN' ? '/admin' :
                 user.role === 'DOCTOR' ? '/doctor' :

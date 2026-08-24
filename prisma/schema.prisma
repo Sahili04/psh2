@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../backend/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -7,40 +8,65 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+model Organization {
+  id                 String       @id @default(uuid())
+  name               String
+  code               String       @unique
+  registrationNumber String       @unique
+  email              String
+  phone              String
+  address            String
+  city               String
+  hospitalType       String       @default("MULTI_SPECIALTY")
+  status             String       @default("PENDING") // PENDING, APPROVED, REJECTED
+  rejectionReason    String?
+  superAdminName     String
+  superAdminEmail    String
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  users              User[]
+  departments        Department[]
+}
+
 model User {
-  id           String      @id @default(uuid())
-  name         String
-  email        String      @unique
-  passwordHash String
-  role         String      // ADMIN, DOCTOR, NURSE, RECEPTIONIST, RESOURCE_MANAGER, PATIENT
-  departmentId String?
-  status       String      @default("ACTIVE")
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id             String        @id @default(uuid())
+  name           String
+  email          String        @unique
+  passwordHash   String
+  role           String        // PLATFORM_OWNER, SUPER_ADMIN, DEPARTMENT_ADMIN, DOCTOR, NURSE, RECEPTIONIST, RESOURCE_MANAGER, PATIENT
+  departmentId   String?
+  organizationId String?
+  status         String        @default("ACTIVE")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
   
-  department   Department? @relation(fields: [departmentId], references: [id])
-  doctors      Doctor[]
-  nurses       Nurse[]
-  auditLogs    AuditLog[]
+  department     Department?   @relation(fields: [departmentId], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  doctors        Doctor[]
+  nurses         Nurse[]
+  auditLogs      AuditLog[]
 }
 
 model Department {
-  id           String             @id @default(uuid())
-  name         String
-  specialty    String
-  floor        Int
-  capacity     Int
-  headDoctorId String?
-  status       String             @default("ACTIVE")
+  id             String             @id @default(uuid())
+  organizationId String?
+  name           String
+  specialty      String
+  floor          Int
+  capacity       Int
+  headDoctorId   String?
+  status         String             @default("ACTIVE")
   
-  users        User[]
-  doctors      Doctor[]
-  nurses       Nurse[]
-  beds         Bed[]
-  equipment    Equipment[]
-  ots          OperationTheatre[]
-  appointments Appointment[]
-  admissions   Admission[]
+  organization   Organization?      @relation(fields: [organizationId], references: [id])
+  users          User[]
+  doctors        Doctor[]
+  nurses         Nurse[]
+  beds           Bed[]
+  equipment      Equipment[]
+  ots            OperationTheatre[]
+  appointments   Appointment[]
+  admissions     Admission[]
 }
 
 model Doctor {
@@ -112,16 +138,40 @@ model Bed {
 }
 
 model Equipment {
-  id               String          @id @default(uuid())
-  name             String
-  type             String
-  serialNumber     String          @unique
-  departmentId     String
-  location         String
-  status           String          @default("AVAILABLE") // AVAILABLE, RESERVED, IN_USE, MAINTENANCE
-  currentPatientId String?
+  id                   String            @id @default(uuid())
+  name                 String
+  type                 String
+  serialNumber         String            @unique
+  departmentId         String
+  location             String
+  status               String            @default("AVAILABLE") // AVAILABLE, RESERVED, IN_USE, MAINTENANCE
+  currentPatientId     String?
+  healthScore          Int               @default(100)
+  calibrationStatus    String            @default("CALIBRATED") // CALIBRATED, DUE_SOON, OVERDUE, MAINTENANCE_REQUIRED
+  batteryLevel         Int               @default(100)
+  sensorAccuracy       String            @default("99.5%")
+  lastSurveyDate       DateTime?
+  surveyedByDoctorName String?
+  nextSurveyDate       DateTime?
+  surveyNotes          String?
   
-  department       Department      @relation(fields: [departmentId], references: [id])
+  department           Department        @relation(fields: [departmentId], references: [id])
+  surveys              EquipmentSurvey[]
+}
+
+model EquipmentSurvey {
+  id                   String            @id @default(uuid())
+  equipmentId          String
+  doctorName           String
+  healthScore          Int
+  calibrationStatus    String
+  batteryLevel         Int
+  sensorAccuracy       String
+  surveyDate           DateTime          @default(now())
+  nextSurveyDate       DateTime
+  notes                String?
+  
+  equipment            Equipment         @relation(fields: [equipmentId], references: [id])
 }
 
 model OperationTheatre {

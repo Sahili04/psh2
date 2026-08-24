@@ -13,6 +13,7 @@ interface SocketContextType {
   isConnected: boolean;
   toasts: ToastNotification[];
   dismissToast: (id: string) => void;
+  addToast: (type: 'info' | 'success' | 'warning' | 'error', title: string, message: string) => void;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -96,7 +97,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, isConnected, toasts, dismissToast }}>
+    <SocketContext.Provider value={{ socket, isConnected, toasts, dismissToast, addToast }}>
       {children}
       {/* Toast Notification Container */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-md w-full px-4">

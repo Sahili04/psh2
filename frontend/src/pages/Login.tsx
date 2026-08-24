@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
 import {
   Activity, ShieldCheck, Building, Stethoscope, HeartPulse,
   User, UserPlus, ArrowRight, Key, Sparkles, LogIn, ChevronRight,
-  Shield, CheckCircle2, Zap, Award, Layers
+  Shield, CheckCircle2, Zap, Award, Layers, Search, Clock, FileText, Check, Plus
 } from 'lucide-react';
 
 export function Login() {
   const { login, registerPatient } = useAuth();
   const navigate = useNavigate();
 
-  // Navigation View State: 'home' | 'patient_login' | 'patient_signup' | 'org_login'
-  const [view, setView] = useState<'home' | 'patient_login' | 'patient_signup' | 'org_login'>('home');
+  // Navigation View State
+  const [view, setView] = useState<'home' | 'patient_login' | 'patient_signup' | 'org_login' | 'register_org' | 'check_status' | 'owner_login'>('home');
 
-  // Org Category Filter: 'ALL' | 'ADMIN' | 'DOCTOR' | 'NURSE' | 'OTHER'
-  const [orgCategory, setOrgCategory] = useState<'ALL' | 'ADMIN' | 'DOCTOR' | 'NURSE' | 'OTHER'>('ALL');
+  // Org Category Filter: 'ALL' | 'OWNER' | 'ADMIN' | 'DOCTOR' | 'NURSE' | 'OTHER'
+  const [orgCategory, setOrgCategory] = useState<'ALL' | 'OWNER' | 'ADMIN' | 'DOCTOR' | 'NURSE' | 'OTHER'>('ALL');
 
   // Auth Form State
   const [email, setEmail] = useState('');
@@ -23,9 +24,27 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Hospital Registration State
+  const [hospName, setHospName] = useState('');
+  const [hospRegNum, setHospRegNum] = useState('');
+  const [hospEmail, setHospEmail] = useState('');
+  const [hospPhone, setHospPhone] = useState('+1-800-HOSPITAL');
+  const [hospAddress, setHospAddress] = useState('750 Emergency Expressway');
+  const [hospCity, setHospCity] = useState('Metropolis');
+  const [hospType, setHospType] = useState('MULTI_SPECIALTY');
+  const [superAdminName, setSuperAdminName] = useState('');
+  const [superAdminEmail, setSuperAdminEmail] = useState('');
+  const [regSuccessMsg, setRegSuccessMsg] = useState('');
+
+  // Application Status Checker State
+  const [statusQuery, setStatusQuery] = useState('');
+  const [statusResult, setStatusResult] = useState<any>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState('');
+
   // Patient Registration State
   const [regName, setRegName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
+  const [regPatientEmail, setRegPatientEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regDob, setRegDob] = useState('1995-04-12');
   const [regGender, setRegGender] = useState('Male');
@@ -33,19 +52,14 @@ export function Login() {
   const [regBlood, setRegBlood] = useState('O+');
 
   const demoAccounts = [
-    { category: 'ADMIN', role: 'SUPER_ADMIN', name: 'Super Admin Control', email: 'superadmin@hospital.com', pass: 'password123', desc: 'Controls hierarchy — Assign & Revoke Dept Admins' },
-    { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'ICU Dept Admin', email: 'deptadmin@hospital.com', pass: 'password123', desc: 'ICU Department Lead' },
+    { category: 'OWNER', role: 'PLATFORM_OWNER', name: 'Software Platform Owner', email: 'owner@hospitalecho.com', pass: 'password123', desc: 'Platform Owner — Approves Hospitals & Provisions Super Admins' },
+    { category: 'ADMIN', role: 'SUPER_ADMIN', name: 'Super Admin Control', email: 'superadmin@hospital.com', pass: 'password123', desc: 'Hospital Super Admin — Provisions Dept Admins' },
+    { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'ICU Dept Admin', email: 'deptadmin@hospital.com', pass: 'password123', desc: 'ICU Department Lead — Provisions Doctors/Nurses' },
     { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Emergency Dept Admin', email: 'admin.emergency@hospital.com', pass: 'password123', desc: 'Emergency & Trauma Lead' },
     { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Cardiology Dept Admin', email: 'admin.cardiology@hospital.com', pass: 'password123', desc: 'Cardiology Unit Lead' },
     { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Neurology Dept Admin', email: 'admin.neurology@hospital.com', pass: 'password123', desc: 'Neurology Department Lead' },
-    { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Orthopedics Dept Admin', email: 'admin.orthopedics@hospital.com', pass: 'password123', desc: 'Orthopedics Center Lead' },
-    { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Pediatrics Dept Admin', email: 'admin.pediatrics@hospital.com', pass: 'password123', desc: 'Pediatrics Ward Lead' },
-    { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Oncology Dept Admin', email: 'admin.oncology@hospital.com', pass: 'password123', desc: 'Oncology Center Lead' },
-    { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Gen Medicine Admin', email: 'admin.general@hospital.com', pass: 'password123', desc: 'General Medicine Lead' },
-    { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Surgical Suite Admin', email: 'admin.surgery@hospital.com', pass: 'password123', desc: 'Surgical Suite Lead' },
-    { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Radiology Dept Admin', email: 'admin.radiology@hospital.com', pass: 'password123', desc: 'Radiology & Imaging Lead' },
 
-    { category: 'DOCTOR', role: 'DOCTOR', name: 'Dr. Sarah Jenkins', email: 'doctor@hospital.com', pass: 'password123', desc: 'ICU Lead — Review & Accept Requests' },
+    { category: 'DOCTOR', role: 'DOCTOR', name: 'Dr. Sarah Jenkins', email: 'doctor@hospital.com', pass: 'password123', desc: 'ICU Lead — Clinical Decision Maker' },
     { category: 'DOCTOR', role: 'DOCTOR', name: 'Dr. Robert Chen', email: 'doctor2@hospital.com', pass: 'password123', desc: 'Emergency Medicine Specialist' },
     { category: 'NURSE', role: 'NURSE', name: 'Nurse Emily Watson', email: 'nurse@hospital.com', pass: 'password123', desc: 'ICU Shift Nurse — Bed Allotments & Vitals' },
     
@@ -70,6 +84,47 @@ export function Login() {
     }
   };
 
+  const handleRegisterHospital = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg('');
+    setRegSuccessMsg('');
+    try {
+      const res = await api.registerOrganization({
+        name: hospName,
+        registrationNumber: hospRegNum,
+        email: hospEmail,
+        phone: hospPhone,
+        address: hospAddress,
+        city: hospCity,
+        hospitalType: hospType,
+        superAdminName,
+        superAdminEmail,
+      });
+      setRegSuccessMsg(res.message || 'Hospital application submitted successfully! Pending Platform Owner authorization.');
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Hospital registration failed. Please check registration number.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCheckStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!statusQuery) return;
+    setStatusLoading(true);
+    setStatusError('');
+    setStatusResult(null);
+    try {
+      const res = await api.checkOrganizationStatus(statusQuery);
+      setStatusResult(res.organization);
+    } catch (err: any) {
+      setStatusError(err.message || 'No registered hospital found matching your query.');
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
   const handlePatientSelfRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -77,7 +132,7 @@ export function Login() {
     try {
       const user = await registerPatient({
         name: regName,
-        email: regEmail,
+        email: regPatientEmail,
         password: regPassword,
         dateOfBirth: regDob,
         gender: regGender,
@@ -102,7 +157,8 @@ export function Login() {
   };
 
   const redirectRole = (role: string) => {
-    if (role === 'SUPER_ADMIN') navigate('/super-admin');
+    if (role === 'PLATFORM_OWNER') navigate('/platform-owner');
+    else if (role === 'SUPER_ADMIN') navigate('/super-admin');
     else if (role === 'ADMIN' || role === 'DEPARTMENT_ADMIN') navigate('/admin');
     else if (role === 'DOCTOR') navigate('/doctor');
     else if (role === 'NURSE') navigate('/nurse');
@@ -112,134 +168,431 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between p-6 md:p-12">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between p-6 md:p-12 font-sans">
       {/* Header Bar */}
       <header className="max-w-6xl w-full mx-auto flex items-center justify-between">
         <div
           onClick={() => setView('home')}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="p-3 bg-sky-100 border border-sky-200 rounded-2xl text-sky-700 shadow-sm group-hover:scale-105 transition-transform">
+          <div className="p-3 bg-indigo-100 border border-indigo-200 rounded-2xl text-indigo-700 shadow-sm group-hover:scale-105 transition-transform">
             <Activity className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              H-02 CLINICAL SYSTEM
+            <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              HOSPITAL ECOSYSTEM PLATFORM
             </h1>
-            <p className="text-xs text-sky-700 font-mono tracking-wider font-semibold">CONCURRENT TRANSACTION PLATFORM</p>
+            <p className="text-xs text-indigo-700 font-mono tracking-wider font-semibold">MULTI-ORGANIZATION CLINICAL SUITE</p>
           </div>
         </div>
 
         {view !== 'home' && (
           <button
-            onClick={() => setView('home')}
-            className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5"
+            onClick={() => {
+              setView('home');
+              setErrorMsg('');
+              setRegSuccessMsg('');
+            }}
+            className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5 font-mono"
           >
             ← Back to Homepage
           </button>
         )}
       </header>
 
-      {/* VIEW 1: HOME INFO & SELECTION LANDING PAGE */}
+      {/* VIEW 1: MAIN LANDING PAGE (ECOSYSTEM HERO & MAIN CARDS) */}
       {view === 'home' && (
-        <main className="max-w-6xl w-full mx-auto my-auto py-8 space-y-12">
-          {/* Hero Banner & Platform Info */}
+        <main className="max-w-6xl w-full mx-auto my-auto py-8 space-y-10">
+          {/* Hero Banner */}
           <div className="text-center max-w-3xl mx-auto space-y-4">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-100 border border-sky-200 text-sky-800 text-xs font-bold shadow-sm">
-              <Sparkles className="w-4 h-4 text-sky-600" /> Multi-Specialty Hospital Management System
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-100 border border-indigo-200 text-indigo-800 text-xs font-bold shadow-sm font-mono">
+              <Sparkles className="w-4 h-4 text-indigo-600" /> Whole Hospital Ecosystem & Multi-Org Governance Platform
             </div>
             <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight">
-              Real-Time Clinical Resource Allocation & Transaction Platform
+              Hospital Ecosystem Onboarding & Hierarchical Credential Engine
             </h2>
             <p className="text-sm md:text-base text-slate-600 leading-relaxed">
-              Powered by an event-sourced ACID Transaction Engine with deterministic mutex locking, priority preemption, out-of-order sequence safety, and 1000-request zero double-allocation guarantee.
+              Software Owners approve hospital registrations and issue Super Admin credentials. Super Admins provision Department Lead credentials, and Department Leads provision Doctors & Staff.
             </p>
           </div>
 
-          {/* 2 MAIN ACCESS CARDS (Patient vs Organization) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* CARD 1: Patient Login / Sign Up */}
-            <div className="bg-white border border-slate-200 p-8 rounded-3xl shadow-lg hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between space-y-6 hover:-translate-y-1">
+          {/* 4 MAIN ACTION PATHWAYS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+            {/* CARD 1: REGISTER HOSPITAL */}
+            <div className="bg-white border border-indigo-200 p-6 rounded-3xl shadow-lg hover:border-indigo-500 transition-all duration-300 flex flex-col justify-between space-y-4 hover:-translate-y-1">
               <div className="space-y-3">
-                <div className="p-3.5 w-fit rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700">
-                  <User className="w-7 h-7" />
+                <div className="p-3 w-fit rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-700">
+                  <Building className="w-6 h-6" />
                 </div>
-                <h3 className="text-2xl font-extrabold text-slate-900">Patient Portal</h3>
+                <h3 className="text-lg font-black text-slate-900">Register Hospital / Organization</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  For Patients: Self-register your medical account, view active bed allotments, access diagnostic reports, and check prescriptions.
+                  For Hospital Directors: Submit registration details for your hospital to join the ecosystem.
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <button
+                  onClick={() => setView('register_org')}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" /> Register Hospital Now
+                </button>
+                <button
+                  onClick={() => setView('check_status')}
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1 font-mono"
+                >
+                  <Search className="w-3.5 h-3.5" /> Check Status
+                </button>
+              </div>
+            </div>
+
+            {/* CARD 2: SOFTWARE OWNER PORTAL */}
+            <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-lg hover:border-purple-400 transition-all duration-300 flex flex-col justify-between space-y-4 hover:-translate-y-1">
+              <div className="space-y-3">
+                <div className="p-3 w-fit rounded-2xl bg-purple-50 border border-purple-200 text-purple-700">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900">Software Owner Portal</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  For Ecosystem Owners: Review pending hospital applications, authorize hospitals & issue Super Admin credentials.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setEmail('owner@hospitalecho.com');
+                  setPassword('password123');
+                  setView('owner_login');
+                }}
+                className="w-full py-2.5 bg-purple-700 hover:bg-purple-600 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
+              >
+                <Key className="w-4 h-4" /> Owner Sign In
+              </button>
+            </div>
+
+            {/* CARD 3: HOSPITAL STAFF LOGIN */}
+            <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-lg hover:border-sky-400 transition-all duration-300 flex flex-col justify-between space-y-4 hover:-translate-y-1">
+              <div className="space-y-3">
+                <div className="p-3 w-fit rounded-2xl bg-sky-50 border border-sky-200 text-sky-700">
+                  <Stethoscope className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900">Hospital Staff Login</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  For Staff: Log in with credentials issued by Super Admin (for Dept Admins) or Dept Admin (for Doctors/Nurses).
+                </p>
+              </div>
+
+              <button
+                onClick={() => setView('org_login')}
+                className="w-full py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
+              >
+                Access Staff Workstation <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* CARD 4: PATIENT PORTAL */}
+            <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-lg hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between space-y-4 hover:-translate-y-1">
+              <div className="space-y-3">
+                <div className="p-3 w-fit rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700">
+                  <User className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900">Patient Portal</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  For Patients: Originally generate your own login credentials via self-registration to manage medical records.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
                 <button
                   onClick={() => {
                     setEmail('patient@hospital.com');
                     setPassword('password123');
                     setView('patient_login');
                   }}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
                 >
-                  <LogIn className="w-4 h-4" /> Patient Sign In
+                  <LogIn className="w-4 h-4" /> Patient Login
                 </button>
                 <button
                   onClick={() => setView('patient_signup')}
-                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs rounded-xl border border-slate-300 transition flex items-center justify-center gap-1.5"
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-300 transition flex items-center justify-center gap-1"
                 >
-                  <UserPlus className="w-4 h-4" /> Sign Up / Self-Register
+                  <UserPlus className="w-3.5 h-3.5" /> Self-Register
                 </button>
               </div>
-            </div>
-
-            {/* CARD 2: Organization Staff Login */}
-            <div className="bg-white border border-slate-200 p-8 rounded-3xl shadow-lg hover:border-sky-400 transition-all duration-300 flex flex-col justify-between space-y-6 hover:-translate-y-1">
-              <div className="space-y-3">
-                <div className="p-3.5 w-fit rounded-2xl bg-sky-50 border border-sky-200 text-sky-700">
-                  <Building className="w-7 h-7" />
-                </div>
-                <h3 className="text-2xl font-extrabold text-slate-900">Organization Staff Login</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  For Hospital Staff: Super Admin & Departmental Admins (22 departments), Doctor Workstations, Nursing Stations & Resource Control.
-                </p>
-              </div>
-
-              <button
-                onClick={() => setView('org_login')}
-                className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2"
-              >
-                Access Staff Portal <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Quick System Highlights */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto pt-6">
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center space-y-1 shadow-sm">
-              <div className="text-xl font-black text-sky-700">22 Multi-Specialty Depts</div>
-              <div className="text-xs text-slate-500 font-mono">Emergency, ICU, Cardiology, Surgery...</div>
-            </div>
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center space-y-1 shadow-sm">
-              <div className="text-xl font-black text-emerald-600">60 Hospital Beds</div>
-              <div className="text-xs text-slate-500 font-mono">ICU, General, Isolation, Emergency</div>
-            </div>
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl text-center space-y-1 shadow-sm">
-              <div className="text-xl font-black text-amber-600">0 Double Allocations</div>
-              <div className="text-xs text-slate-500 font-mono">Verified under 1000 req/s stress workload</div>
             </div>
           </div>
         </main>
       )}
 
-      {/* VIEW 2: ORGANIZATION STAFF LOGIN VIEW */}
-      {view === 'org_login' && (
+      {/* VIEW 2: REGISTER HOSPITAL / ORGANIZATION FORM */}
+      {view === 'register_org' && (
+        <main className="max-w-3xl w-full mx-auto my-auto py-8">
+          <div className="bg-white border border-indigo-200 p-8 rounded-3xl shadow-xl space-y-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-bold font-mono">
+                <Building className="w-3.5 h-3.5" /> Public Hospital Application Form
+              </div>
+              <h2 className="text-2xl font-black text-slate-900">Register Your Organization / Hospital</h2>
+              <p className="text-xs text-slate-500">
+                Submit details below. Once approved by the Software Platform Owner, credentials will be issued to your Executive Super Admin.
+              </p>
+            </div>
+
+            {errorMsg && (
+              <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono rounded-xl font-bold">
+                ⚠️ {errorMsg}
+              </div>
+            )}
+
+            {regSuccessMsg ? (
+              <div className="p-6 bg-emerald-50 border-2 border-emerald-400 text-emerald-950 rounded-2xl space-y-4 font-mono text-xs">
+                <div className="font-extrabold text-emerald-900 text-base flex items-center gap-2">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-600" /> Hospital Application Submitted Successfully!
+                </div>
+                <p>{regSuccessMsg}</p>
+                <div className="p-3 bg-white border border-emerald-300 rounded-xl space-y-1">
+                  <div><strong>Registered Reg #:</strong> {hospRegNum}</div>
+                  <div><strong>Super Admin Email:</strong> {superAdminEmail}</div>
+                </div>
+                <div className="pt-2 flex gap-3">
+                  <button
+                    onClick={() => {
+                      setStatusQuery(hospRegNum);
+                      setView('check_status');
+                    }}
+                    className="px-4 py-2.5 bg-emerald-700 text-white font-bold rounded-xl shadow"
+                  >
+                    Track Application Status
+                  </button>
+                  <button
+                    onClick={() => setView('home')}
+                    className="px-4 py-2.5 bg-slate-200 text-slate-800 font-bold rounded-xl"
+                  >
+                    Back to Home
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleRegisterHospital} className="space-y-4 text-xs font-mono">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-slate-700 font-bold block mb-1">Hospital / Organization Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. St. Jude Hospital"
+                      value={hospName}
+                      onChange={(e) => setHospName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-700 font-bold block mb-1">Medical Registration Number *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. REG-STJUDE-2026"
+                      value={hospRegNum}
+                      onChange={(e) => setHospRegNum(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-slate-700 font-bold block mb-1">Hospital Official Email *</label>
+                    <input
+                      type="email"
+                      placeholder="contact@stjude.org"
+                      value={hospEmail}
+                      onChange={(e) => setHospEmail(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-700 font-bold block mb-1">Hospital Phone</label>
+                    <input
+                      type="text"
+                      value={hospPhone}
+                      onChange={(e) => setHospPhone(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-700 font-bold block mb-1">Facility Type</label>
+                    <select
+                      value={hospType}
+                      onChange={(e) => setHospType(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="MULTI_SPECIALTY">Multi-Specialty Hospital</option>
+                      <option value="SUPER_SPECIALTY">Super Specialty Clinic</option>
+                      <option value="CARDIAC_TRAUMA">Cardiac & Trauma Center</option>
+                      <option value="GENERAL_HOSPITAL">General Medical Hospital</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-slate-700 font-bold block mb-1">Address Location</label>
+                    <input
+                      type="text"
+                      value={hospAddress}
+                      onChange={(e) => setHospAddress(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-700 font-bold block mb-1">City / Region</label>
+                    <input
+                      type="text"
+                      value={hospCity}
+                      onChange={(e) => setHospCity(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Super Admin Executive Section */}
+                <div className="p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-3">
+                  <div className="font-extrabold text-indigo-900 text-xs flex items-center gap-1.5">
+                    <Key className="w-4 h-4 text-indigo-600" /> Executive Super Admin Account Target
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-slate-700 font-bold block mb-1">Super Admin Full Name *</label>
+                      <input
+                        type="text"
+                        placeholder="Dr. Arthur Pendelton"
+                        value={superAdminName}
+                        onChange={(e) => setSuperAdminName(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 font-bold"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-700 font-bold block mb-1">Super Admin Email (Login ID) *</label>
+                      <input
+                        type="email"
+                        placeholder="superadmin@stjude.org"
+                        value={superAdminEmail}
+                        onChange={(e) => setSuperAdminEmail(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 font-bold"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-3.5 rounded-xl shadow-md transition text-xs flex items-center justify-center gap-2"
+                  >
+                    {loading ? 'Submitting Registration...' : 'Submit Hospital Registration Request 🚀'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </main>
+      )}
+
+      {/* VIEW 3: CHECK APPLICATION STATUS */}
+      {view === 'check_status' && (
+        <main className="max-w-2xl w-full mx-auto my-auto py-8">
+          <div className="bg-white border border-slate-200 p-8 rounded-3xl shadow-xl space-y-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-xs font-bold font-mono">
+                <Search className="w-3.5 h-3.5" /> Application Tracker
+              </div>
+              <h2 className="text-2xl font-black text-slate-900">Check Hospital Registration Status</h2>
+              <p className="text-xs text-slate-500">Enter your Registration Number, Code, or Email below.</p>
+            </div>
+
+            <form onSubmit={handleCheckStatus} className="space-y-4 text-xs font-mono">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter Reg No (e.g. REG-APEX-9988) or email..."
+                  value={statusQuery}
+                  onChange={(e) => setStatusQuery(e.target.value)}
+                  className="flex-1 p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={statusLoading}
+                  className="px-6 py-3 bg-sky-600 hover:bg-sky-500 text-white font-extrabold rounded-xl shadow"
+                >
+                  {statusLoading ? 'Searching...' : 'Search'}
+                </button>
+              </div>
+            </form>
+
+            {statusError && (
+              <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono rounded-xl font-bold">
+                ⚠️ {statusError}
+              </div>
+            )}
+
+            {statusResult && (
+              <div className="p-6 bg-slate-50 border border-slate-300 rounded-2xl space-y-4 font-mono text-xs">
+                <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                  <div>
+                    <div className="text-[10px] text-indigo-600 font-bold uppercase">{statusResult.code}</div>
+                    <h3 className="font-extrabold text-slate-900 text-base">{statusResult.name}</h3>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    statusResult.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                    statusResult.status === 'PENDING' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-rose-100 text-rose-800'
+                  }`}>
+                    {statusResult.status}
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-slate-700">
+                  <div><strong>Registration Number:</strong> {statusResult.registrationNumber}</div>
+                  <div><strong>Hospital Email:</strong> {statusResult.email}</div>
+                  <div><strong>Super Admin Email:</strong> {statusResult.superAdminEmail}</div>
+                </div>
+
+                {statusResult.status === 'PENDING' && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl">
+                    ⏳ Application is currently under review by the Software Platform Owner. Once approved, credentials will be issued.
+                  </div>
+                )}
+
+                {statusResult.status === 'APPROVED' && (
+                  <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-950 rounded-xl space-y-2">
+                    <div className="font-bold text-emerald-900">✅ Hospital Authorized in Ecosystem!</div>
+                    <p className="text-[11px]">The Super Admin account for {statusResult.superAdminEmail} is active. Use the Staff Login portal to access the workstation.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </main>
+      )}
+
+      {/* VIEW 4: SOFTWARE OWNER LOGIN / STAFF LOGIN VIEW */}
+      {(view === 'org_login' || view === 'owner_login') && (
         <main className="max-w-5xl w-full mx-auto my-auto py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left: Organization Login Form */}
+          {/* Left: Login Form */}
           <div className="lg:col-span-6 bg-white border border-slate-200 p-8 rounded-3xl shadow-xl space-y-6">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-xs font-bold">
-                <ShieldCheck className="w-3.5 h-3.5" /> Organization Staff Portal
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold font-mono">
+                <ShieldCheck className="w-3.5 h-3.5" /> {view === 'owner_login' ? 'Software Owner Portal' : 'Hospital Staff Portal'}
               </div>
-              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Sign In to Staff Workstation</h2>
-              <p className="text-xs text-slate-500">Enter your official hospital staff credentials below.</p>
+              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                {view === 'owner_login' ? 'Platform Owner Login' : 'Sign In to Staff Workstation'}
+              </h2>
+              <p className="text-xs text-slate-500">Enter your official login credentials below.</p>
             </div>
 
             {errorMsg && (
@@ -248,15 +601,15 @@ export function Login() {
               </div>
             )}
 
-            <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs font-mono">
               <div>
-                <label className="text-slate-700 font-bold block mb-1">Staff Email Address</label>
+                <label className="text-slate-700 font-bold block mb-1">Email Address</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="staff@hospital.com"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-mono text-xs focus:outline-none focus:border-sky-500 focus:bg-white"
+                  placeholder="name@hospital.com"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500"
                   required
                 />
               </div>
@@ -268,7 +621,7 @@ export function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-mono text-xs focus:outline-none focus:border-sky-500 focus:bg-white"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500"
                   required
                 />
               </div>
@@ -276,245 +629,165 @@ export function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2"
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold rounded-xl shadow-md transition flex items-center justify-center gap-2 text-xs"
               >
-                {loading ? 'Authenticating...' : 'Sign In as Staff'} <ArrowRight className="w-4 h-4" />
+                {loading ? 'Authenticating...' : 'Sign In & Launch Workstation 🚀'}
               </button>
             </form>
           </div>
 
-          {/* Right: Staff Category Filters & Demo Accounts */}
-          <div className="lg:col-span-6 space-y-4">
-            <div className="bg-slate-100 border border-slate-200 p-6 rounded-3xl space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                  <Key className="w-4 h-4 text-amber-600" /> Staff Category Demo Accounts
+          {/* Right: Quick Demo Credential Selector */}
+          <div className="lg:col-span-6 bg-white border border-slate-200 p-6 rounded-3xl shadow-lg space-y-4 font-mono text-xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-extrabold text-slate-900 flex items-center gap-2">
+                  <Key className="w-4 h-4 text-indigo-600" /> Demo Ecosystem Credentials
                 </h3>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-white border border-slate-300 rounded text-slate-600">
-                  Password: password123
-                </span>
+                <p className="text-[11px] text-slate-500">Click any account below to quick-fill login credentials</p>
               </div>
+            </div>
 
-              {/* Category Filter Tabs */}
-              <div className="flex gap-1.5 overflow-x-auto pb-1">
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {['ALL', 'OWNER', 'ADMIN', 'DOCTOR', 'NURSE', 'OTHER'].map((cat) => (
                 <button
-                  onClick={() => setOrgCategory('ALL')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition ${orgCategory === 'ALL' ? 'bg-sky-600 text-white' : 'bg-white text-slate-700 border border-slate-200'}`}
+                  key={cat}
+                  onClick={() => setOrgCategory(cat as any)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                    orgCategory === cat ? 'bg-indigo-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
                 >
-                  All Staff
+                  {cat}
                 </button>
-                <button
-                  onClick={() => setOrgCategory('ADMIN')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition ${orgCategory === 'ADMIN' ? 'bg-purple-600 text-white' : 'bg-white text-slate-700 border border-slate-200'}`}
-                >
-                  1. Administration
-                </button>
-                <button
-                  onClick={() => setOrgCategory('DOCTOR')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition ${orgCategory === 'DOCTOR' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-700 border border-slate-200'}`}
-                >
-                  2. Doctor Workstation
-                </button>
-                <button
-                  onClick={() => setOrgCategory('NURSE')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition ${orgCategory === 'NURSE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 border border-slate-200'}`}
-                >
-                  3. Nurse Station
-                </button>
-              </div>
+              ))}
+            </div>
 
-              {/* Demo Accounts List */}
-              <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
-                {demoAccounts
-                  .filter((acc) => orgCategory === 'ALL' || acc.category === orgCategory)
-                  .map((acc) => (
-                    <div
-                      key={acc.email}
-                      className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between hover:border-sky-300 transition text-xs"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-900 flex items-center gap-2">
-                          {acc.name}
-                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200">
-                            {acc.role}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">{acc.email}</div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleAutoFill(acc.email, acc.pass)}
-                        className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-lg text-xs font-bold font-mono transition"
-                      >
-                        Auto-Fill
-                      </button>
+            <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+              {demoAccounts
+                .filter((acc) => orgCategory === 'ALL' || acc.category === orgCategory)
+                .map((acc, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => handleAutoFill(acc.email, acc.pass)}
+                    className="p-3 bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-300 rounded-xl cursor-pointer transition flex items-center justify-between group"
+                  >
+                    <div>
+                      <div className="font-bold text-slate-900 group-hover:text-indigo-900">{acc.name}</div>
+                      <div className="text-[11px] text-slate-500">{acc.email}</div>
+                      <div className="text-[10px] text-slate-400 italic mt-0.5">{acc.desc}</div>
                     </div>
-                  ))}
-              </div>
+                    <span className="px-2 py-1 bg-white border border-slate-200 text-slate-700 text-[10px] font-bold rounded group-hover:bg-indigo-600 group-hover:text-white transition">
+                      Fill
+                    </span>
+                  </div>
+                ))}
             </div>
           </div>
         </main>
       )}
 
-      {/* VIEW 3: PATIENT LOGIN VIEW */}
-      {view === 'patient_login' && (
+      {/* VIEW 5 & 6: PATIENT LOGIN / PATIENT SIGNUP VIEWS */}
+      {(view === 'patient_login' || view === 'patient_signup') && (
         <main className="max-w-md w-full mx-auto my-auto py-8">
-          <div className="bg-white border border-slate-200 p-8 rounded-3xl shadow-xl space-y-6">
-            <div className="space-y-2 text-center">
-              <div className="p-3 w-fit mx-auto rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700">
-                <User className="w-6 h-6" />
+          <div className="bg-white border border-slate-200 p-8 rounded-3xl shadow-xl space-y-6 font-mono text-xs">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold">
+                <User className="w-3.5 h-3.5" /> {view === 'patient_signup' ? 'Patient Self-Registration' : 'Patient Portal Login'}
               </div>
-              <h2 className="text-2xl font-extrabold text-slate-900">Patient Sign In</h2>
-              <p className="text-xs text-slate-500">Access your personal health records and appointments.</p>
+              <h2 className="text-2xl font-black text-slate-900">
+                {view === 'patient_signup' ? 'Create Patient Account' : 'Patient Sign In'}
+              </h2>
             </div>
 
             {errorMsg && (
-              <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono rounded-xl font-bold">
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl font-bold">
                 ⚠️ {errorMsg}
               </div>
             )}
 
-            <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="text-slate-700 font-bold block mb-1">Patient Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="patient@hospital.com"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-mono text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-slate-700 font-bold block mb-1">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-mono text-xs focus:outline-none focus:border-emerald-500 focus:bg-white"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2"
-              >
-                {loading ? 'Authenticating...' : 'Sign In as Patient'} <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
-
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
-              <div>
-                <div className="font-bold text-slate-800">Demo Patient Account</div>
-                <div className="text-[11px] font-mono text-slate-500">patient@hospital.com</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleAutoFill('patient@hospital.com', 'password123')}
-                className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded font-mono font-bold text-xs"
-              >
-                Auto-Fill
-              </button>
-            </div>
-
-            <div className="pt-2 text-center text-xs text-slate-500">
-              Don't have an account?{' '}
-              <button onClick={() => setView('patient_signup')} className="text-emerald-700 font-bold hover:underline">
-                Sign Up / Self-Register
-              </button>
-            </div>
-          </div>
-        </main>
-      )}
-
-      {/* VIEW 4: PATIENT SIGN UP / SELF-REGISTRATION VIEW */}
-      {view === 'patient_signup' && (
-        <main className="max-w-md w-full mx-auto my-auto py-8">
-          <div className="bg-white border border-slate-200 p-8 rounded-3xl shadow-xl space-y-6">
-            <div className="space-y-2 text-center">
-              <div className="p-3 w-fit mx-auto rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700">
-                <UserPlus className="w-6 h-6" />
-              </div>
-              <h2 className="text-2xl font-extrabold text-slate-900">Patient Self-Registration</h2>
-              <p className="text-xs text-slate-500">Create your personal patient medical account.</p>
-            </div>
-
-            {errorMsg && (
-              <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono rounded-xl font-bold">
-                ⚠️ {errorMsg}
-              </div>
-            )}
-
-            <form onSubmit={handlePatientSelfRegister} className="space-y-3 text-xs">
-              <div>
-                <label className="text-slate-600 font-mono block mb-1">Full Name</label>
-                <input type="text" value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="e.g. Jane Smith" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900" required />
-              </div>
-              <div>
-                <label className="text-slate-600 font-mono block mb-1">Email Address</label>
-                <input type="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} placeholder="jane@example.com" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900" required />
-              </div>
-              <div>
-                <label className="text-slate-600 font-mono block mb-1">Password</label>
-                <input type="password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900" required />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+            {view === 'patient_login' ? (
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
-                  <label className="text-slate-600 font-mono block mb-1">Date of Birth</label>
-                  <input type="date" value={regDob} onChange={(e) => setRegDob(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900" required />
+                  <label className="text-slate-700 font-bold block mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-bold"
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="text-slate-600 font-mono block mb-1">Gender</label>
-                  <select value={regGender} onChange={(e) => setRegGender(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900">
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </select>
+                  <label className="text-slate-700 font-bold block mb-1">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-bold"
+                    required
+                  />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-slate-600 font-mono block mb-1">Phone</label>
-                  <input type="text" value={regPhone} onChange={(e) => setRegPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900" required />
-                </div>
-                <div>
-                  <label className="text-slate-600 font-mono block mb-1">Blood Group</label>
-                  <select value={regBlood} onChange={(e) => setRegBlood(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900">
-                    <option value="O+">O+</option>
-                    <option value="A+">A+</option>
-                    <option value="B+">B+</option>
-                    <option value="AB+">AB+</option>
-                    <option value="O-">O-</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button type="submit" disabled={loading} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg shadow-sm">
-                  {loading ? 'Creating Account...' : 'Register & Log In Immediately'}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl shadow"
+                >
+                  {loading ? 'Logging in...' : 'Sign In to Patient Portal'}
                 </button>
-              </div>
-            </form>
-
-            <div className="pt-2 text-center text-xs text-slate-500">
-              Already have an account?{' '}
-              <button onClick={() => setView('patient_login')} className="text-emerald-700 font-bold hover:underline">
-                Sign In as Patient
-              </button>
-            </div>
+              </form>
+            ) : (
+              <form onSubmit={handlePatientSelfRegister} className="space-y-3">
+                <div>
+                  <label className="text-slate-700 font-bold block mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                    placeholder="John Doe"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-700 font-bold block mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={regPatientEmail}
+                    onChange={(e) => setRegPatientEmail(e.target.value)}
+                    placeholder="patient@gmail.com"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-700 font-bold block mb-1">Password</label>
+                  <input
+                    type="password"
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl shadow"
+                >
+                  {loading ? 'Creating Account...' : 'Generate Patient Account & Sign In'}
+                </button>
+              </form>
+            )}
           </div>
         </main>
       )}
 
       {/* Footer Bar */}
-      <footer className="max-w-6xl w-full mx-auto text-center text-xs text-slate-500 font-mono space-y-1">
-        <div>H-02 Clinical System • Real-Time Transaction Engine • Password Authentication Active</div>
-        <div className="text-[10px] text-sky-600 font-mono font-bold">
-          Connected Backend API: {(import.meta as any).env?.VITE_API_URL || 'Auto-Detected (Render / Local)'}
+      <footer className="max-w-6xl w-full mx-auto border-t border-slate-200 pt-4 flex flex-col sm:flex-row justify-between items-center text-slate-500 text-xs font-mono gap-2">
+        <div>H-02 Multi-Hospital Ecosystem Engine • v2.6 Core Architecture</div>
+        <div className="flex gap-4">
+          <span className="text-indigo-600 font-bold">PLATFORM OWNER AUTHORIZED</span>
+          <span>•</span>
+          <span className="text-emerald-600 font-bold">DETERMINISTIC ACID LOCKING</span>
         </div>
       </footer>
     </div>

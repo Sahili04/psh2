@@ -17,6 +17,8 @@ export interface CreateTransactionParams {
   resourceType: string;
   resourceId: string;
   doctorId?: string;
+  departmentId?: string;
+  reason?: string;
   equipmentId?: string;
   simulateFailureStep?: string; // Optional failure injection for demo (e.g. 'EQUIPMENT_FAILED' or 'DOCTOR_FAILED')
 }
@@ -25,6 +27,7 @@ export interface TransactionResult {
   transaction: any;
   status: string;
   events: any[];
+  admission?: any;
   conflict?: any;
   isDuplicate?: boolean;
   message: string;
@@ -48,6 +51,15 @@ export class TransactionEngine {
       });
 
       if (existingTx) {
+        // Find existing admission if present
+        let existingAdmission = null;
+        if (existingTx.patientId) {
+          existingAdmission = await prisma.admission.findFirst({
+            where: { patientId: existingTx.patientId },
+            include: { patient: true, doctor: { include: { user: true } }, bed: true },
+          });
+        }
+
         // Record duplicate attempt event
         const dupEvent = await prisma.event.create({
           data: {
@@ -79,8 +91,9 @@ export class TransactionEngine {
           transaction: existingTx,
           status: existingTx.status,
           events: [...existingTx.events, dupEvent],
+          admission: existingAdmission,
           isDuplicate: true,
-          message: `Idempotency enforced: Transaction ${txNumber} already exists in state ${existingTx.status}.`,
+          message: `Request already completed. Transaction ${txNumber} exists in state ${existingTx.status}.`,
         };
       }
 
@@ -378,12 +391,33 @@ export class TransactionEngine {
           };
         }
 
-        // 8. COMMIT WORKFLOW
+        // 8. COMMIT WORKFLOW ATOMICALLY
+        let createdAdmission: any = null;
         if (params.resourceType === ResourceType.BED) {
           await db.bed.update({
             where: { id: params.resourceId },
             data: { status: BedStatus.OCCUPIED, currentPatientId: params.patientId || null },
           });
+
+          // Create Admission and update Patient status inside SAME atomic DB transaction!
+          if (params.patientId && (params.type === TransactionType.PATIENT_ADMISSION || params.type === TransactionType.PATIENT_TRANSFER)) {
+            createdAdmission = await db.admission.create({
+              data: {
+                patientId: params.patientId,
+                doctorId: params.doctorId || 'DOC-DEFAULT',
+                departmentId: params.departmentId || 'DEPT-DEFAULT',
+                bedId: params.resourceId,
+                status: AdmissionStatus.ADMITTED,
+                reason: params.reason || 'Patient Hospital Admission',
+              },
+              include: { patient: true, doctor: { include: { user: true } }, bed: true },
+            });
+
+            await db.patient.update({
+              where: { id: params.patientId },
+              data: { status: 'ADMITTED' },
+            });
+          }
         } else if (params.resourceType === ResourceType.EQUIPMENT) {
           await db.equipment.update({
             where: { id: params.resourceId },
@@ -428,6 +462,7 @@ export class TransactionEngine {
           transaction: committedTx,
           status: TransactionStatus.COMMITTED,
           events: eventsList,
+          admission: createdAdmission,
           message: `Transaction ${txNumber} committed successfully. Resource ${params.resourceId} allocated.`,
         };
       });

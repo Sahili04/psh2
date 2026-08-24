@@ -110,6 +110,56 @@ export async function updateEquipmentStatusHandler(request: FastifyRequest, repl
   return reply.send(eq);
 }
 
+export async function surveyEquipmentHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as any;
+  const { doctorName, adminName, assessorName, healthScore, calibrationStatus, batteryLevel, sensorAccuracy, nextSurveyDate, notes } = request.body as any;
+
+  const assessor = adminName || assessorName || doctorName || 'Department Admin';
+  const now = new Date();
+  const nextDate = nextSurveyDate ? new Date(nextSurveyDate) : new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const updatedEq = await prisma.equipment.update({
+    where: { id },
+    data: {
+      healthScore: healthScore !== undefined ? parseInt(healthScore, 10) : 100,
+      calibrationStatus: calibrationStatus || 'CALIBRATED',
+      batteryLevel: batteryLevel !== undefined ? parseInt(batteryLevel, 10) : 100,
+      sensorAccuracy: sensorAccuracy || '99.5%',
+      lastSurveyDate: now,
+      surveyedByDoctorName: assessor,
+      nextSurveyDate: nextDate,
+      surveyNotes: notes || 'Routine machine parameter inspection completed by Department Admin.',
+    },
+    include: { department: true, surveys: true },
+  });
+
+  const surveyLog = await prisma.equipmentSurvey.create({
+    data: {
+      equipmentId: id,
+      doctorName: assessor,
+      healthScore: healthScore !== undefined ? parseInt(healthScore, 10) : 100,
+      calibrationStatus: calibrationStatus || 'CALIBRATED',
+      batteryLevel: batteryLevel !== undefined ? parseInt(batteryLevel, 10) : 100,
+      sensorAccuracy: sensorAccuracy || '99.5%',
+      surveyDate: now,
+      nextSurveyDate: nextDate,
+      notes: notes || 'Routine machine parameter inspection completed by Department Admin.',
+    },
+  });
+
+  broadcastEvent('resource:updated', { resourceType: 'EQUIPMENT', resource: updatedEq });
+  return reply.send({ equipment: updatedEq, survey: surveyLog });
+}
+
+export async function getEquipmentSurveysHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as any;
+  const surveys = await prisma.equipmentSurvey.findMany({
+    where: { equipmentId: id },
+    orderBy: { surveyDate: 'desc' },
+  });
+  return reply.send(surveys);
+}
+
 export async function getOTsHandler(request: FastifyRequest, reply: FastifyReply) {
   const ots = await prisma.operationTheatre.findMany({
     include: { department: true },

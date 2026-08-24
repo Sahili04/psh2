@@ -61,6 +61,17 @@ export const api = {
   createStaff: (data: any) => request('/auth/users', { method: 'POST', body: JSON.stringify(data) }),
   deleteUser: (id: string) => request(`/auth/users/${id}`, { method: 'DELETE' }),
 
+  // Organizations / Hospitals Platform Control
+  registerOrganization: (data: any) => request('/organizations/register', { method: 'POST', body: JSON.stringify(data) }),
+  checkOrganizationStatus: (query: string) => request(`/organizations/status?query=${encodeURIComponent(query)}`),
+  getOrganizations: () => request('/organizations'),
+  getPendingOrganizations: () => request('/organizations/pending'),
+  approveOrganization: (id: string, data?: any) => request(`/organizations/${id}/approve`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  rejectOrganization: (id: string, data?: any) => request(`/organizations/${id}/reject`, { method: 'POST', body: JSON.stringify(data || {}) }),
+
+  // User & Staff Provisioning
+  createDepartmentAdmin: (data: any) => request('/auth/department-admins', { method: 'POST', body: JSON.stringify(data) }),
+
   // Resources & Departments
   getDepartments: () => request('/resources/departments'),
   getBeds: () => request('/resources/beds'),
@@ -75,6 +86,8 @@ export const api = {
   getEquipment: () => request('/resources/equipment'),
   createEquipment: (data: any) => request('/resources/equipment', { method: 'POST', body: JSON.stringify(data) }),
   updateEquipmentStatus: (id: string, data: any) => request(`/resources/equipment/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  surveyEquipment: (id: string, data: any) => request(`/resources/equipment/${id}/survey`, { method: 'POST', body: JSON.stringify(data) }),
+  getEquipmentSurveys: (id: string) => request(`/resources/equipment/${id}/surveys`),
 
   getOTs: () => request('/resources/ots'),
   updateOTStatus: (id: string, data: any) => request(`/resources/ots/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),

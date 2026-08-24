@@ -1,4 +1,5 @@
 export type Role =
+  | 'PLATFORM_OWNER'
   | 'SUPER_ADMIN'
   | 'ADMIN'
   | 'DEPARTMENT_ADMIN'
@@ -28,6 +29,26 @@ export type TransactionStatus =
   | 'OUT_OF_ORDER'
   | 'CANCELLED';
 
+export interface Organization {
+  id: string;
+  name: string;
+  code: string;
+  registrationNumber: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  hospitalType: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string;
+  superAdminName: string;
+  superAdminEmail: string;
+  createdAt: string;
+  updatedAt: string;
+  departments?: any[];
+  users?: any[];
+}
+
 export interface User {
   id: string;
   name: string;
@@ -35,6 +56,7 @@ export interface User {
   role: Role;
   department?: string;
   departmentId?: string;
+  organizationId?: string;
   doctorId?: string;
   nurseId?: string;
   patientId?: string;

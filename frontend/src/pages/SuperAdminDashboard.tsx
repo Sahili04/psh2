@@ -80,19 +80,20 @@ export function SuperAdminDashboard() {
     }
   };
 
-  // --- STAFF ACTIONS ---
+  const [createdCredentialResult, setCreatedCredentialResult] = useState<any>(null);
+
+  // --- STAFF & DEPT ADMIN PROVISIONING ACTIONS ---
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.createStaff({
+      const res = await api.createDepartmentAdmin({
         name: staffName,
         email: staffEmail,
-        password: 'password123',
-        role: staffRole,
-        departmentId: staffDeptId || null,
+        password: 'DeptAdmin2026!',
+        departmentId: staffDeptId || depts[0]?.id,
       });
-      setMsg(`SUCCESS: Created ${staffRole} account for ${staffName}`);
-      setShowAddStaffModal(false);
+      setCreatedCredentialResult(res);
+      setMsg(`SUCCESS: Department Admin account generated for ${staffName}! Credentials issued.`);
       setStaffName('');
       setStaffEmail('');
       loadData();
@@ -230,6 +231,29 @@ export function SuperAdminDashboard() {
         <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-mono font-bold rounded-xl flex items-center justify-between">
           <span>{msg}</span>
           <button onClick={() => setMsg('')} className="text-emerald-900 font-bold">✕</button>
+        </div>
+      )}
+
+      {createdCredentialResult && (
+        <div className="p-5 bg-indigo-50 border-2 border-indigo-300 rounded-2xl space-y-3 font-mono text-xs text-indigo-950">
+          <div className="font-extrabold text-indigo-900 text-sm flex items-center gap-2">
+            🔑 Department Admin Login Credentials Provisioned!
+          </div>
+          <div className="p-3 bg-white border border-indigo-200 rounded-xl space-y-1">
+            <div><strong>Department Admin Name:</strong> {createdCredentialResult.user?.name}</div>
+            <div><strong>Department Assigned:</strong> {createdCredentialResult.credentials?.department}</div>
+            <div><strong>Login Email:</strong> <span className="font-bold text-slate-900">{createdCredentialResult.credentials?.email}</span></div>
+            <div><strong>Initial Password:</strong> <span className="px-2 py-0.5 bg-slate-100 border rounded font-black text-slate-900">{createdCredentialResult.credentials?.password}</span></div>
+          </div>
+          <p className="text-[11px] text-indigo-800">
+            Share these login credentials with the Department Admin. They can now access their departmental workstation.
+          </p>
+          <button
+            onClick={() => setCreatedCredentialResult(null)}
+            className="px-4 py-1.5 bg-indigo-700 text-white rounded-lg font-bold text-xs"
+          >
+            Dismiss Credential Notice
+          </button>
         </div>
       )}
 
