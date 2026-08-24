@@ -20,8 +20,9 @@ function getApiHost(): string {
   return 'http://localhost:5000';
 }
 
-const API_HOST = getApiHost();
-const BASE_URL = `${API_HOST.replace(/\/$/, '')}/api`;
+export function getActiveApiHost(): string {
+  return getApiHost();
+}
 
 function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem('h02_token');
@@ -29,13 +30,16 @@ function getAuthHeader(): Record<string, string> {
 }
 
 async function request(endpoint: string, options: RequestInit = {}) {
+  const host = getApiHost();
+  const baseUrl = `${host.replace(/\/$/, '')}/api`;
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...getAuthHeader(),
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+  const response = await fetch(`${baseUrl}${endpoint}`, { ...options, headers });
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {

@@ -511,8 +511,11 @@ export function Login() {
       )}
 
       {/* Footer Bar */}
-      <footer className="max-w-6xl w-full mx-auto text-center text-xs text-slate-500 font-mono">
-        H-02 Clinical System • Real-Time Transaction Engine • Password Authentication Active
+      <footer className="max-w-6xl w-full mx-auto text-center text-xs text-slate-500 font-mono space-y-1">
+        <div>H-02 Clinical System • Real-Time Transaction Engine • Password Authentication Active</div>
+        <div className="text-[10px] text-sky-600 font-mono font-bold">
+          Connected Backend API: {(import.meta as any).env?.VITE_API_URL || 'Auto-Detected (Render / Local)'}
+        </div>
       </footer>
     </div>
   );
