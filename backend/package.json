@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
-    "render-build": "npm install --prefix ../frontend && npm run build --prefix ../frontend && npx prisma generate --schema=../prisma/schema.prisma && npx prisma db push --schema=../prisma/schema.prisma && tsc && node dist/seed.js",
+    "render-build": "npm install --include=dev --prefix ../frontend && npm run build --prefix ../frontend && npx prisma generate --schema=../prisma/schema.prisma && npx prisma db push --schema=../prisma/schema.prisma && tsc && node dist/seed.js",
     "start": "node dist/app.js",
     "db:push": "prisma db push --schema=../prisma/schema.prisma",
     "db:generate": "prisma generate --schema=../prisma/schema.prisma",
