@@ -116,37 +116,37 @@ function ProtectedLayout() {
             } />
 
             <Route path="/transactions" element={
-              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'RESOURCE_MANAGER']}>
+              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'DEPARTMENT_ADMIN', 'RESOURCE_MANAGER']}>
                 <TransactionCenter />
               </RoleGuard>
             } />
 
             <Route path="/conflicts" element={
-              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'RESOURCE_MANAGER']}>
+              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'DEPARTMENT_ADMIN', 'RESOURCE_MANAGER']}>
                 <ConflictCenter />
               </RoleGuard>
             } />
 
             <Route path="/simulation" element={
-              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'RESOURCE_MANAGER']}>
+              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'DEPARTMENT_ADMIN', 'RESOURCE_MANAGER']}>
                 <SimulationLab />
               </RoleGuard>
             } />
 
             <Route path="/patients" element={
-              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST']}>
+              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'DEPARTMENT_ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST']}>
                 <PatientsPage />
               </RoleGuard>
             } />
 
             <Route path="/beds" element={
-              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'NURSE', 'RESOURCE_MANAGER']}>
+              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'DEPARTMENT_ADMIN', 'DOCTOR', 'NURSE', 'RESOURCE_MANAGER']}>
                 <BedsPage />
               </RoleGuard>
             } />
 
             <Route path="/audit-logs" element={
-              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+              <RoleGuard allowedRoles={['SUPER_ADMIN', 'ADMIN', 'DEPARTMENT_ADMIN']}>
                 <AuditPage />
               </RoleGuard>
             } />
