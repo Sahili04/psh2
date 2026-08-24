@@ -1,0 +1,19 @@
+{
+  "name": "h02-hospital-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "seed": "npm run seed --prefix backend",
+    "db:push": "npm run db:push --prefix backend",
+    "test": "npm run test --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prisma": "^5.22.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  }
+}

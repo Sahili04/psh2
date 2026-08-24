@@ -1,0 +1,9 @@
+node_modules
+*.zip
+*.log
+dist
+frontend/dist
+backend/dist
+prisma/*.db
+prisma/*.db-journal
+.DS_Store

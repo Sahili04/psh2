@@ -1,0 +1,39 @@
+services:
+  # -------------------------------------------------------------
+  # Backend Fastify API & Socket.IO Service
+  # -------------------------------------------------------------
+  - type: web
+    name: h02-backend
+    runtime: node
+    region: singapore # Options: oregon, frankfurt, singapore, ohio
+    plan: free
+    rootDir: backend
+    buildCommand: npm run render-build
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+
+  # -------------------------------------------------------------
+  # Frontend React SPA Static Site
+  # -------------------------------------------------------------
+  - type: web
+    name: h02-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: h02-backend
+          property: host

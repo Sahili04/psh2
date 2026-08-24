@@ -1,0 +1,321 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String      @id @default(uuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  role         String      // ADMIN, DOCTOR, NURSE, RECEPTIONIST, RESOURCE_MANAGER, PATIENT
+  departmentId String?
+  status       String      @default("ACTIVE")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  
+  department   Department? @relation(fields: [departmentId], references: [id])
+  doctors      Doctor[]
+  nurses       Nurse[]
+  auditLogs    AuditLog[]
+}
+
+model Department {
+  id           String             @id @default(uuid())
+  name         String
+  specialty    String
+  floor        Int
+  capacity     Int
+  headDoctorId String?
+  status       String             @default("ACTIVE")
+  
+  users        User[]
+  doctors      Doctor[]
+  nurses       Nurse[]
+  beds         Bed[]
+  equipment    Equipment[]
+  ots          OperationTheatre[]
+  appointments Appointment[]
+  admissions   Admission[]
+}
+
+model Doctor {
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  specialization     String
+  licenseNumber      String             @unique
+  departmentId       String
+  availabilityStatus String             @default("AVAILABLE") // AVAILABLE, BUSY, ON_LEAVE
+  shift              String             @default("DAY") // DAY, NIGHT, ON_CALL
+  
+  user               User               @relation(fields: [userId], references: [id])
+  department         Department         @relation(fields: [departmentId], references: [id])
+  appointments       Appointment[]
+  admissions         Admission[]
+  consultations      Consultation[]
+  prescriptions      Prescription[]
+  reports            MedicalReport[]
+}
+
+model Nurse {
+  id           String     @id @default(uuid())
+  userId       String     @unique
+  departmentId String
+  shift        String     @default("DAY")
+  
+  user         User       @relation(fields: [userId], references: [id])
+  department   Department @relation(fields: [departmentId], references: [id])
+  careTasks    CareTask[]
+}
+
+model Patient {
+  id               String            @id @default(uuid())
+  patientNumber    String            @unique
+  name             String
+  dateOfBirth      String
+  gender           String
+  phone            String
+  address          String
+  emergencyContact String
+  bloodGroup       String
+  allergies        String            @default("None")
+  medicalHistory   String            @default("None")
+  priority         String            @default("ROUTINE") // EMERGENCY, CRITICAL, URGENT, ROUTINE
+  status           String            @default("ACTIVE")
+  
+  appointments     Appointment[]
+  admissions       Admission[]
+  consultations    Consultation[]
+  prescriptions    Prescription[]
+  reports          MedicalReport[]
+  transactions     Transaction[]
+  resourceRequests ResourceRequest[]
+  vitals           Vital[]
+  careTasks        CareTask[]
+}
+
+model Bed {
+  id               String       @id @default(uuid())
+  bedNumber        String       @unique
+  type             String       // ICU, GENERAL, EMERGENCY, ISOLATION
+  departmentId     String
+  floor            Int
+  status           String       @default("AVAILABLE") // AVAILABLE, RESERVED, OCCUPIED, MAINTENANCE
+  currentPatientId String?
+  
+  department       Department   @relation(fields: [departmentId], references: [id])
+  admissions       Admission[]
+}
+
+model Equipment {
+  id               String          @id @default(uuid())
+  name             String
+  type             String
+  serialNumber     String          @unique
+  departmentId     String
+  location         String
+  status           String          @default("AVAILABLE") // AVAILABLE, RESERVED, IN_USE, MAINTENANCE
+  currentPatientId String?
+  
+  department       Department      @relation(fields: [departmentId], references: [id])
+}
+
+model OperationTheatre {
+  id           String     @id @default(uuid())
+  name         String
+  departmentId String
+  status       String     @default("AVAILABLE") // AVAILABLE, SCHEDULED, RESERVED, IN_USE, MAINTENANCE
+  equipment    String     @default("Standard Surgical Kit")
+  
+  department   Department @relation(fields: [departmentId], references: [id])
+}
+
+model Appointment {
+  id           String            @id @default(uuid())
+  patientId    String
+  doctorId     String
+  departmentId String
+  dateTime     DateTime
+  status       String            @default("SCHEDULED") // SCHEDULED, CHECKED_IN, IN_PROGRESS, COMPLETED, CANCELLED
+  reason       String
+  
+  patient      Patient           @relation(fields: [patientId], references: [id])
+  doctor       Doctor            @relation(fields: [doctorId], references: [id])
+  department   Department        @relation(fields: [departmentId], references: [id])
+}
+
+model Admission {
+  id            String          @id @default(uuid())
+  patientId     String
+  doctorId      String
+  departmentId  String
+  bedId         String
+  admissionDate DateTime        @default(now())
+  dischargeDate DateTime?
+  status        String          @default("ADMITTED") // ADMITTED, TRANSFERRED, DISCHARGED, CANCELLED
+  reason        String          @default("Medical Care")
+  
+  patient       Patient         @relation(fields: [patientId], references: [id])
+  doctor        Doctor          @relation(fields: [doctorId], references: [id])
+  department    Department      @relation(fields: [departmentId], references: [id])
+  bed           Bed             @relation(fields: [bedId], references: [id])
+}
+
+model Consultation {
+  id            String   @id @default(uuid())
+  patientId     String
+  doctorId      String
+  symptoms      String
+  observations  String
+  diagnosis     String
+  treatmentPlan String
+  notes         String?
+  createdAt     DateTime @default(now())
+  
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  doctor        Doctor   @relation(fields: [doctorId], references: [id])
+}
+
+model Prescription {
+  id           String   @id @default(uuid())
+  patientId    String
+  doctorId     String
+  medicine     String
+  dosage       String
+  frequency    String
+  duration     String
+  instructions String
+  createdAt    DateTime @default(now())
+  
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  doctor       Doctor   @relation(fields: [doctorId], references: [id])
+}
+
+model MedicalReport {
+  id        String   @id @default(uuid())
+  patientId String
+  doctorId  String
+  type      String
+  title     String
+  result    String
+  status    String   @default("COMPLETED")
+  createdAt DateTime @default(now())
+  
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+}
+
+model Vital {
+  id              String   @id @default(uuid())
+  patientId       String
+  recordedBy      String
+  temperature     Float
+  heartRate       Int
+  bloodPressure   String
+  spO2            Int
+  respiratoryRate Int
+  createdAt       DateTime @default(now())
+  
+  patient         Patient  @relation(fields: [patientId], references: [id])
+}
+
+model CareTask {
+  id          String   @id @default(uuid())
+  patientId   String
+  nurseId     String
+  description String
+  status      String   @default("PENDING")
+  dueTime     String
+  createdAt   DateTime @default(now())
+  
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  nurse       Nurse    @relation(fields: [nurseId], references: [id])
+}
+
+model Transaction {
+  id                String              @id @default(uuid())
+  transactionNumber String              @unique
+  patientId         String?
+  initiatedBy       String
+  type              String              // BED_ALLOCATION, DOCTOR_ASSIGNMENT, EQUIPMENT_RESERVATION, OT_BOOKING, PATIENT_ADMISSION, PATIENT_TRANSFER, MULTI_RESOURCE_ADMISSION
+  priority          String              @default("ROUTINE") // EMERGENCY, CRITICAL, URGENT, ROUTINE
+  status            String              @default("REQUESTED") // REQUESTED, VALIDATING, PROCESSING, RESERVED, COMMITTED, FAILED, COMPENSATING, ROLLED_BACK, ESCALATED, CANCELLED
+  resourceType      String              // BED, DOCTOR, EQUIPMENT, OT
+  resourceId        String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  patient           Patient?            @relation(fields: [patientId], references: [id])
+  resourceRequests  ResourceRequest[]
+  events            Event[]
+  auditLogs         AuditLog[]
+  conflicts         Conflict[]          @relation("MainTransaction")
+  conflictingWith   Conflict[]          @relation("ConflictingTransaction")
+  wonConflicts      Conflict[]          @relation("WinnerTransaction")
+}
+
+model ResourceRequest {
+  id            String              @id @default(uuid())
+  transactionId String
+  patientId     String?
+  requestedBy   String
+  resourceType  String
+  resourceId    String
+  priority      String              @default("ROUTINE")
+  reason        String
+  status        String              @default("PENDING")
+  createdAt     DateTime            @default(now())
+  
+  transaction   Transaction         @relation(fields: [transactionId], references: [id])
+  patient       Patient?            @relation(fields: [patientId], references: [id])
+}
+
+model Event {
+  id             String      @id @default(uuid())
+  eventId        String      @unique
+  transactionId  String
+  eventType      String      // RESOURCE_REQUESTED, RESOURCE_LOCK_ACQUIRED, RESOURCE_RESERVED, DOCTOR_ASSIGNED, EQUIPMENT_ASSIGNED, COMMITTED, RESOURCE_FAILED, COMPENSATION_STARTED, RESOURCE_RELEASED, ROLLED_BACK, ESCALATED
+  sequenceNumber Int
+  payload        String
+  status         String      @default("PENDING") // PENDING, PROCESSED, DUPLICATE, REJECTED, OUT_OF_ORDER
+  createdAt      DateTime    @default(now())
+  processedAt    DateTime?
+  
+  transaction    Transaction @relation(fields: [transactionId], references: [id])
+}
+
+model AuditLog {
+  id            String       @id @default(uuid())
+  userId        String
+  transactionId String?
+  action        String
+  entityType    String
+  entityId      String
+  oldState      String?
+  newState      String?
+  reason        String?
+  metadata      String?
+  createdAt     DateTime     @default(now())
+  
+  user          User         @relation(fields: [userId], references: [id])
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+}
+
+model Conflict {
+  id                       String         @id @default(uuid())
+  transactionId            String
+  resourceId               String
+  conflictingTransactionId String
+  winnerTransactionId      String?
+  reason                   String
+  status                   String         @default("OPEN") // OPEN, RESOLVED, OVERRIDDEN, ESCALATED
+  createdAt                DateTime       @default(now())
+  
+  transaction              Transaction    @relation("MainTransaction", fields: [transactionId], references: [id])
+  conflictingTransaction   Transaction    @relation("ConflictingTransaction", fields: [conflictingTransactionId], references: [id])
+  winnerTransaction        Transaction?   @relation("WinnerTransaction", fields: [winnerTransactionId], references: [id])
+}
