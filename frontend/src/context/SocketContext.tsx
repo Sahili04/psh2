@@ -35,8 +35,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   useEffect(() => {
-    const socketUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000';
-    const newSocket = io(socketUrl, {
+    let rawSocketUrl = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:5000').trim();
+    if (rawSocketUrl && !rawSocketUrl.startsWith('http://') && !rawSocketUrl.startsWith('https://')) {
+      rawSocketUrl = `https://${rawSocketUrl}`;
+    }
+    const newSocket = io(rawSocketUrl, {
       transports: ['websocket', 'polling'],
     });
 

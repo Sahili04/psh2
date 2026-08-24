@@ -1,5 +1,8 @@
-const API_HOST = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000';
-const BASE_URL = `${API_HOST.replace(/\/$/, '')}/api`;
+let rawHost = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:5000').trim();
+if (rawHost && !rawHost.startsWith('http://') && !rawHost.startsWith('https://')) {
+  rawHost = `https://${rawHost}`;
+}
+const BASE_URL = `${rawHost.replace(/\/$/, '')}/api`;
 
 function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem('h02_token');
