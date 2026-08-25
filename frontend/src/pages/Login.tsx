@@ -176,14 +176,14 @@ export function Login() {
           onClick={() => setView('home')}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="p-3 bg-indigo-100 border border-indigo-200 rounded-2xl text-indigo-700 shadow-sm group-hover:scale-105 transition-transform">
+          <div className="p-3 bg-gradient-to-br from-sky-500 to-indigo-600 rounded-2xl text-white shadow-md group-hover:scale-105 transition-transform">
             <Activity className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              HOSPITAL ECOSYSTEM PLATFORM
+            <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
+              MediVerse
             </h1>
-            <p className="text-xs text-indigo-700 font-mono tracking-wider font-semibold">MULTI-ORGANIZATION CLINICAL SUITE</p>
+            <p className="text-xs text-indigo-700 font-mono tracking-wider font-semibold">MULTI-ORGANIZATION CLINICAL PLATFORM</p>
           </div>
         </div>
 
@@ -207,13 +207,13 @@ export function Login() {
           {/* Hero Banner */}
           <div className="text-center max-w-3xl mx-auto space-y-4">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-100 border border-indigo-200 text-indigo-800 text-xs font-bold shadow-sm font-mono">
-              <Sparkles className="w-4 h-4 text-indigo-600" /> Whole Hospital Ecosystem & Multi-Org Governance Platform
+              <Sparkles className="w-4 h-4 text-indigo-600" /> MediVerse — Multi-Hospital Clinical Governance Platform
             </div>
             <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight">
-              Hospital Ecosystem Onboarding & Hierarchical Credential Engine
+              One Platform. Every Hospital. <span className="bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">MediVerse.</span>
             </h2>
             <p className="text-sm md:text-base text-slate-600 leading-relaxed">
-              Software Owners approve hospital registrations and issue Super Admin credentials. Super Admins provision Department Lead credentials, and Department Leads provision Doctors & Staff.
+              Software Owners approve hospital registrations and issue Super Admin credentials. Super Admins provision Department Leads, and Department Leads provision Doctors & Staff — all in real-time.
             </p>
           </div>
 
@@ -784,7 +784,7 @@ export function Login() {
 
       {/* Footer Bar */}
       <footer className="max-w-6xl w-full mx-auto border-t border-slate-200 pt-4 flex flex-col sm:flex-row justify-between items-center text-slate-500 text-xs font-mono gap-2">
-        <div>H-02 Multi-Hospital Ecosystem Engine • v2.6 Core Architecture</div>
+        <div>MediVerse Clinical Platform • v2.6 Core Architecture</div>
         <div className="flex gap-4">
           <span className="text-indigo-600 font-bold">PLATFORM OWNER AUTHORIZED</span>
           <span>•</span>

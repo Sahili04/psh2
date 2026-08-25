@@ -288,7 +288,7 @@ export function SimulationLab() {
       <div className="glass-panel p-8 rounded-3xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-2xl">
         <div className="space-y-2 z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
-            <Zap className="w-3.5 h-3.5 fill-current" /> H-02 Live Verification Suite
+            <Zap className="w-3.5 h-3.5 fill-current" /> MediVerse Live Verification Suite
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-slate-100 tracking-tight">
             Simulation Lab & Concurrency Engine
@@ -303,7 +303,7 @@ export function SimulationLab() {
             <span className={`w-2 h-2 rounded-full ${running ? 'bg-amber-400' : 'bg-emerald-400'}`} />
             {running ? 'RUNNING' : 'READY'}
           </div>
-          <div className="text-[10px] font-mono text-slate-500">H-02 Engine Connected</div>
+          <div className="text-[10px] font-mono text-slate-500">MediVerse Engine Connected</div>
         </div>
       </div>
 

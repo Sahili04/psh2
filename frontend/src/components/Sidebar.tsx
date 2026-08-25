@@ -34,7 +34,7 @@ export function Sidebar() {
               { label: '2. Department Governance', path: '/super-admin?tab=departments', icon: Building },
               { label: '3. Staff & Access Control', path: '/super-admin?tab=staff', icon: Users },
               { label: '4. Hospital Resources', path: '/super-admin?tab=resources', icon: Bed },
-              { label: '5. H-02 Engine Control', path: '/super-admin?tab=h02_control', icon: Zap },
+              { label: '5. MediVerse Engine Control', path: '/super-admin?tab=h02_control', icon: Zap },
             ],
           },
           {
@@ -43,7 +43,7 @@ export function Sidebar() {
               { label: 'Transaction Engine', path: '/transactions', icon: GitCommit },
               { label: 'Conflict Center', path: '/conflicts', icon: AlertTriangle },
               { label: 'Audit Logs', path: '/audit-logs', icon: Activity },
-              { label: 'H-02 Simulation Lab', path: '/simulation', icon: Zap, badge: 'TEST SUITE' },
+              { label: 'MediVerse Simulation Lab', path: '/simulation', icon: Zap, badge: 'TEST SUITE' },
             ],
           },
         ];

@@ -11,12 +11,12 @@ export function Header() {
     <header className="bg-white border-b border-slate-200 h-16 px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-sky-50 rounded-xl border border-sky-200 text-sky-600">
+          <div className="p-2 bg-gradient-to-br from-sky-500 to-indigo-600 rounded-xl text-white shadow">
             <Activity className="w-5 h-5 animate-pulse" />
           </div>
           <div>
             <div className="font-extrabold text-slate-900 text-sm tracking-tight flex items-center gap-2">
-              H-02 CLINICAL PLATFORM
+              <span className="bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">MediVerse</span>
               <span className="text-[10px] font-mono font-semibold px-2 py-0.5 bg-sky-100 text-sky-700 border border-sky-200 rounded-full">
                 AUTHENTICATED
               </span>
