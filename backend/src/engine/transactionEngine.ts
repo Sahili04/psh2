@@ -42,7 +42,7 @@ export class TransactionEngine {
     const txNumber = params.transactionNumber || `TX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const resourceKey = `${params.resourceType}:${params.resourceId}`;
 
-    // Acquire lock per resource to serialize competing operations
+    // Acquire priority-aware lock: higher priority requests jump the queue
     return await resourceLockManager.acquireLock(resourceKey, async () => {
       // 1. Idempotency Check
       const existingTx = await prisma.transaction.findUnique({
@@ -466,7 +466,7 @@ export class TransactionEngine {
           message: `Transaction ${txNumber} committed successfully. Resource ${params.resourceId} allocated.`,
         };
       });
-    });
+    }, params.priority);
   }
 
   /**
