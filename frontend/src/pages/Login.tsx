@@ -176,9 +176,7 @@ export function Login() {
           onClick={() => setView('home')}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="p-3 bg-gradient-to-br from-sky-500 to-indigo-600 rounded-2xl text-white shadow-md group-hover:scale-105 transition-transform">
-            <Activity className="w-6 h-6 animate-pulse" />
-          </div>
+          <img src="/logo.png" alt="MediVerse Logo" className="h-12 w-auto object-contain group-hover:scale-105 transition-transform" />
           <div>
             <h1 className="text-xl font-black tracking-tight bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
               MediVerse

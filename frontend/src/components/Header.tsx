@@ -11,9 +11,7 @@ export function Header() {
     <header className="bg-white border-b border-slate-200 h-16 px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-gradient-to-br from-sky-500 to-indigo-600 rounded-xl text-white shadow">
-            <Activity className="w-5 h-5 animate-pulse" />
-          </div>
+          <img src="/logo.png" alt="MediVerse Logo" className="h-10 w-auto object-contain" />
           <div>
             <div className="font-extrabold text-slate-900 text-sm tracking-tight flex items-center gap-2">
               <span className="bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">MediVerse</span>
