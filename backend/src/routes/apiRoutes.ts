@@ -20,6 +20,7 @@ import {
 } from '../controllers/patientController.js';
 import {
   getTransactionsHandler, getTransactionDetailHandler, createManualTransactionHandler,
+  createPendingBedRequestHandler, acceptBedRequestHandler, rejectBedRequestHandler, offerAlternativeBedHandler,
   getConflictsHandler, overrideConflictHandler, getAuditLogsHandler, getEventsHandler
 } from '../controllers/transactionController.js';
 import { runSimulationScenarioHandler } from '../controllers/simulationController.js';
@@ -89,6 +90,10 @@ export async function registerApiRoutes(fastify: FastifyInstance) {
   fastify.get('/api/transactions', getTransactionsHandler);
   fastify.get('/api/transactions/:id', getTransactionDetailHandler);
   fastify.post('/api/transactions/execute', createManualTransactionHandler);
+  fastify.post('/api/transactions/request-bed', createPendingBedRequestHandler);
+  fastify.post('/api/transactions/:id/accept', acceptBedRequestHandler);
+  fastify.post('/api/transactions/:id/reject', rejectBedRequestHandler);
+  fastify.post('/api/transactions/:id/offer-alternative', offerAlternativeBedHandler);
 
   fastify.get('/api/conflicts', getConflictsHandler);
   fastify.post('/api/conflicts/override', overrideConflictHandler);

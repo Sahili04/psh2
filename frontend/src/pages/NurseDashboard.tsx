@@ -68,6 +68,30 @@ export function NurseDashboard() {
     }
   };
 
+  // Emergency SOS State
+  const [showSosModal, setShowSosModal] = useState(false);
+  const [sosPatient, setSosPatient] = useState<any>(null);
+  const [sosReason, setSosReason] = useState('🚨 Patient experiencing acute respiratory distress and sudden drop in blood pressure!');
+  const [isTriggeringSos, setIsTriggeringSos] = useState(false);
+
+  const handleEmergencySos = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const target = sosPatient || selectedPatient || patients[0];
+    if (!target) return;
+
+    setIsTriggeringSos(true);
+    try {
+      const res = await api.triggerEmergencySos(target.id, sosReason, user?.nurseId || user?.id);
+      setMsg(`🚨 EMERGENCY SOS DISPATCHED: Attending Doctor ${target.assignedDoctor?.user?.name || 'Dr. Ananya Iyer'} notified STAT with high-priority audio beep alarm!`);
+      setCriticalAlert(`🚨 EMERGENCY SOS ACTIVE for ${target.name}! Doctor portal beep alarm sounding.`);
+      setShowSosModal(false);
+    } catch (err: any) {
+      setMsg(`ERROR triggering SOS: ${err.message}`);
+    } finally {
+      setIsTriggeringSos(false);
+    }
+  };
+
   // STEP 2 & 5: RECORD VITALS + ABNORMAL VITAL CRITICAL ALERT DETECTION
   const handleRecordVitals = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +99,7 @@ export function NurseDashboard() {
     try {
       await api.createVital({
         patientId: selectedPatient.id,
-        recordedBy: user?.name || 'Nurse Emily Watson',
+        recordedBy: user?.name || 'Nurse Sunita Devi',
         temperature: temp,
         heartRate: hr,
         bloodPressure: bp,
@@ -90,7 +114,7 @@ export function NurseDashboard() {
 
       if (numSpo2 < 92 || numTemp > 102.5 || numHr > 120) {
         setCriticalAlert(
-          `⚠️ CRITICAL ALERT TRIGGERED: Abnormal Vitals Detected for ${selectedPatient.name} (SpO2: ${spo2}%, Temp: ${temp}°F, HR: ${hr} bpm). Attending Doctor Sarah Jenkins Notified STAT!`
+          `⚠️ CRITICAL ALERT TRIGGERED: Abnormal Vitals Detected for ${selectedPatient.name} (SpO2: ${spo2}%, Temp: ${temp}°F, HR: ${hr} bpm). Attending Doctor Dr. Ananya Iyer Notified STAT!`
         );
       } else {
         setCriticalAlert(null);
@@ -103,6 +127,7 @@ export function NurseDashboard() {
       setMsg(`ERROR: ${err.message}`);
     }
   };
+
 
   // STEP 4: CARE TASKS TOGGLE
   const handleToggleTask = (taskId: string) => {
@@ -242,6 +267,16 @@ export function NurseDashboard() {
                       >
                         Record Vitals 🩺
                       </button>
+                      <button
+                        onClick={() => {
+                          const target = patients[idx % patients.length] || patients[0];
+                          setSosPatient(target);
+                          setShowSosModal(true);
+                        }}
+                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded font-bold text-[11px] flex items-center gap-1 shadow-md animate-pulse"
+                      >
+                        🚨 SOS
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -249,6 +284,7 @@ export function NurseDashboard() {
             </div>
           </div>
         )}
+
 
         {/* STEP 2 & 3: MONITOR PATIENT & RECORD VITALS */}
         {activeTab === 'vitals' && (
@@ -478,6 +514,77 @@ export function NurseDashboard() {
           </div>
         </div>
       )}
+
+      {/* 🚨 NURSE EMERGENCY SOS MODAL */}
+      {showSosModal && (
+        <div className="fixed inset-0 bg-rose-950/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-rose-600 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-scale-up">
+            <div className="flex items-center gap-3 border-b border-rose-100 pb-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center text-2xl font-black shadow-lg animate-pulse">
+                🚨
+              </div>
+              <div>
+                <h3 className="font-black text-rose-900 text-lg">TRIGGER EMERGENCY SOS ALERT</h3>
+                <p className="text-xs text-rose-600 font-mono">Immediate Real-time Doctor Notification & Audio Siren Beep</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleEmergencySos} className="space-y-4 text-xs font-mono">
+              <div>
+                <label className="text-slate-700 font-bold block mb-1">Target Patient for Emergency SOS</label>
+                <select
+                  value={sosPatient?.id || selectedPatient?.id}
+                  onChange={(e) => {
+                    const p = patients.find((pat) => pat.id === e.target.value);
+                    setSosPatient(p);
+                  }}
+                  className="w-full bg-slate-50 border border-rose-300 rounded-xl p-3 text-slate-900 font-bold text-sm"
+                >
+                  {patients.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.patientNumber}) — Allotted Dr. {p.assignedDoctor?.user?.name || 'Dr. Ananya Iyer'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-700 font-bold block mb-1">Emergency SOS Reason / Symptom</label>
+                <textarea
+                  rows={3}
+                  value={sosReason}
+                  onChange={(e) => setSosReason(e.target.value)}
+                  className="w-full bg-slate-50 border border-rose-300 rounded-xl p-3 text-slate-900 font-semibold"
+                  placeholder="Describe sudden clinical emergency or symptom..."
+                  required
+                />
+              </div>
+
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-[11px] leading-relaxed">
+                <strong>⚡ Real-Time Action:</strong> Triggering this SOS will immediately play a repeating audio siren tone on <strong>Dr. {sosPatient?.assignedDoctor?.user?.name || selectedPatient?.assignedDoctor?.user?.name || 'Dr. Ananya Iyer'}</strong>'s portal and display the full patient history modal!
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={isTriggeringSos}
+                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-black py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
+                >
+                  {isTriggeringSos ? 'DISPATCHING SOS...' : '🚨 DISPATCH EMERGENCY SOS STAT'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSosModal(false)}
+                  className="px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

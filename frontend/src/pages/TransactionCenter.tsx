@@ -5,6 +5,8 @@ import { StatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { TransactionTimeline } from '../components/TransactionTimeline';
 import { GitCommit, Eye, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, Layers, ShieldCheck, Zap } from 'lucide-react';
 
+import { PendingBedRequestsSection } from '../components/PendingBedRequestsSection';
+
 export function TransactionCenter() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
@@ -86,6 +88,9 @@ export function TransactionCenter() {
           </div>
         </div>
       </div>
+
+      {/* RESOURCE ALLOCATION: PENDING BED REQUESTS */}
+      <PendingBedRequestsSection />
 
       {/* Filter Tabs */}
       <div className="flex items-center justify-between">

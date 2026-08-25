@@ -117,6 +117,10 @@ export const api = {
   getTransactions: () => request('/transactions'),
   getTransactionDetail: (id: string) => request(`/transactions/${id}`),
   executeTransaction: (data: any) => request('/transactions/execute', { method: 'POST', body: JSON.stringify(data) }),
+  requestBed: (data: any) => request('/transactions/request-bed', { method: 'POST', body: JSON.stringify(data) }),
+  acceptBedRequest: (id: string, data?: any) => request(`/transactions/${id}/accept`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  rejectBedRequest: (id: string, data?: any) => request(`/transactions/${id}/reject`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  offerAlternativeBed: (id: string, data: any) => request(`/transactions/${id}/offer-alternative`, { method: 'POST', body: JSON.stringify(data) }),
 
   getConflicts: () => request('/conflicts'),
   overrideConflict: (data: any) => request('/conflicts/override', { method: 'POST', body: JSON.stringify(data) }),
@@ -124,6 +128,15 @@ export const api = {
   getAuditLogs: () => request('/audit-logs'),
   getEvents: () => request('/events'),
 
+  // Emergency SOS & Shift End Handover
+  triggerEmergencySos: (patientId: string, reason?: string, nurseId?: string) =>
+    request(`/patients/${patientId}/emergency-sos`, { method: 'POST', body: JSON.stringify({ reason, nurseId }) }),
+  getEmergencyAlerts: () => request('/emergency-alerts'),
+  acknowledgeEmergencySos: (id: string) => request(`/emergency-alerts/${id}/acknowledge`, { method: 'POST' }),
+  endDoctorShift: (id: string, newAvailabilityStatus?: string) =>
+    request(`/resources/doctors/${id}/end-shift`, { method: 'POST', body: JSON.stringify({ newAvailabilityStatus }) }),
+
   // Simulation Lab
   runSimulation: (scenario: string) => request('/simulation/run', { method: 'POST', body: JSON.stringify({ scenario }) }),
 };
+

@@ -13,7 +13,7 @@ export async function getPatientsHandler(request: FastifyRequest, reply: Fastify
       reports: true,
       vitals: { orderBy: { createdAt: 'desc' }, take: 5 },
     },
-    orderBy: { patientNumber: 'asc' },
+    orderBy: { patientNumber: 'desc' },
   });
   return reply.send(patients);
 }

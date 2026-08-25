@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import { EquipmentMonitoringTab } from '../components/EquipmentMonitoringTab';
+import { PendingBedRequestsSection } from '../components/PendingBedRequestsSection';
 
 export function AdminDashboard() {
   const { user } = useAuth();
@@ -254,6 +255,9 @@ export function AdminDashboard() {
               <div className="text-xl font-extrabold text-rose-800">{deptConflicts.length} Conflicts</div>
             </div>
           </div>
+
+          {/* Pending Bed Requests Section */}
+          <PendingBedRequestsSection />
 
           {/* Department Appointments & Beds Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -516,54 +520,57 @@ export function AdminDashboard() {
 
       {/* TAB 6: H-02 DEPT REQUESTS & CONFLICTS */}
       {activeTab === 'h02_requests' && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <div>
-              <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-rose-600" /> H-02 Resource Requests & Preemption Escalations
-              </h2>
-              <p className="text-xs text-slate-500">Approve incoming department requests or escalate unresolved conflicts to Super Admin</p>
+        <div className="space-y-6">
+          <PendingBedRequestsSection />
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-rose-600" /> H-02 Resource Requests & Preemption Escalations
+                </h2>
+                <p className="text-xs text-slate-500">Approve incoming department requests or escalate unresolved conflicts to Super Admin</p>
+              </div>
             </div>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-mono">
-                <tr>
-                  <th className="p-3">TRANSACTION ID</th>
-                  <th className="p-3">REQUEST TYPE</th>
-                  <th className="p-3">REQUESTED RESOURCE</th>
-                  <th className="p-3">STATUS</th>
-                  <th className="p-3">ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 font-mono">
-                {transactions.slice(0, 5).map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50 transition">
-                    <td className="p-3 font-bold text-slate-900">{t.transactionNumber || t.id.substring(0, 8)}</td>
-                    <td className="p-3 font-bold text-purple-700">{t.type}</td>
-                    <td className="p-3 text-sky-700 font-bold">{t.resourceId}</td>
-                    <td className="p-3"><StatusBadge status={t.status} /></td>
-                    <td className="p-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleApproveDeptRequest(t.id)}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-[11px]"
-                        >
-                          Approve Request ✅
-                        </button>
-                        <button
-                          onClick={() => handleEscalateToSuperAdmin(t.id)}
-                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded font-bold text-[11px]"
-                        >
-                          Escalate to Super Admin 🚀
-                        </button>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-mono">
+                  <tr>
+                    <th className="p-3">TRANSACTION ID</th>
+                    <th className="p-3">REQUEST TYPE</th>
+                    <th className="p-3">REQUESTED RESOURCE</th>
+                    <th className="p-3">STATUS</th>
+                    <th className="p-3">ACTIONS</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200 font-mono">
+                  {transactions.slice(0, 5).map((t) => (
+                    <tr key={t.id} className="hover:bg-slate-50 transition">
+                      <td className="p-3 font-bold text-slate-900">{t.transactionNumber || t.id.substring(0, 8)}</td>
+                      <td className="p-3 font-bold text-purple-700">{t.type}</td>
+                      <td className="p-3 text-sky-700 font-bold">{t.resourceId}</td>
+                      <td className="p-3"><StatusBadge status={t.status} /></td>
+                      <td className="p-3">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleApproveDeptRequest(t.id)}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-[11px]"
+                          >
+                            Approve Request ✅
+                          </button>
+                          <button
+                            onClick={() => handleEscalateToSuperAdmin(t.id)}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded font-bold text-[11px]"
+                          >
+                            Escalate to Super Admin 🚀
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

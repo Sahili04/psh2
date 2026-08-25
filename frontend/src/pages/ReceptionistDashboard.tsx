@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { StatusBadge } from '../components/StatusBadge';
 import {
   Calendar, UserPlus, CheckCircle2, Search, Volume2, UserCheck, ArrowRight, Clock, Users,
-  Bed, ShieldCheck, Zap, Plus, Activity, Filter, Phone, MapPin, HeartPulse
+  Bed, ShieldCheck, Zap, Plus, Activity, Filter, Phone, MapPin, HeartPulse, Ticket
 } from 'lucide-react';
 
 export function ReceptionistDashboard() {
@@ -33,10 +33,10 @@ export function ReceptionistDashboard() {
 
   // Waiting Queue Token List State
   const [queueList, setQueueList] = useState<any[]>([
-    { token: 'QUEUE-001', patient: 'John Doe', doctor: 'Dr. Sarah Jenkins', dept: 'Intensive Care Unit (ICU)', priority: 'EMERGENCY', status: 'WAITING' },
-    { token: 'QUEUE-002', patient: 'Jane Smith', doctor: 'Dr. Robert Chen', dept: 'Emergency & Trauma', priority: 'CRITICAL', status: 'WAITING' },
-    { token: 'QUEUE-003', patient: 'Michael Brown', doctor: 'Dr. Arthur Pendelton', dept: 'Cardiology Unit', priority: 'URGENT', status: 'WAITING' },
-    { token: 'QUEUE-004', patient: 'Emily Davis', doctor: 'Dr. Priya Sharma', dept: 'Pediatrics Ward', priority: 'ROUTINE', status: 'WAITING' },
+    { token: 'QUEUE-001', patient: 'Rahul Verma', doctor: 'Dr. Ananya Iyer', dept: 'Intensive Care Unit (ICU)', priority: 'EMERGENCY', status: 'WAITING' },
+    { token: 'QUEUE-002', patient: 'Aarav Patel', doctor: 'Dr. Vikramaditya Rao', dept: 'Emergency & Trauma', priority: 'CRITICAL', status: 'WAITING' },
+    { token: 'QUEUE-003', patient: 'Meera Joshi', doctor: 'Dr. Sunita Deshmukh', dept: 'Cardiology Unit', priority: 'URGENT', status: 'WAITING' },
+    { token: 'QUEUE-004', patient: 'Priya Sharma', doctor: 'Dr. Priya Sharma', dept: 'Pediatrics Ward', priority: 'ROUTINE', status: 'WAITING' },
   ]);
 
   const [activeCalledPatient, setActiveCalledPatient] = useState<any>(null);
@@ -46,9 +46,9 @@ export function ReceptionistDashboard() {
   const [pName, setPName] = useState('');
   const [pDob, setPDob] = useState('1990-05-15');
   const [pGender, setPGender] = useState('Male');
-  const [pPhone, setPPhone] = useState('+1-555-0199');
-  const [pAddress, setPAddress] = useState('100 Health Blvd, Cityville');
-  const [pEmg, setPEmg] = useState('+1-555-9999');
+  const [pPhone, setPPhone] = useState('+91-98765-43210');
+  const [pAddress, setPAddress] = useState('100 MG Road, Bengaluru');
+  const [pEmg, setPEmg] = useState('+91-98765-00000');
   const [pBlood, setPBlood] = useState('O+');
 
   // Appointment Modal State
@@ -104,13 +104,34 @@ export function ReceptionistDashboard() {
         emergencyContact: pEmg,
         bloodGroup: pBlood,
       });
-      setMsg(`SUCCESS: Patient ${created.name} registered cleanly with ID: ${created.patientNumber}`);
+      const docName = created.assignedDoctor?.user?.name || 'Dr. Ananya Iyer';
+      const nurseName = created.assignedNurse?.user?.name || 'Nurse Sunita Devi';
+
+      setMsg(`SUCCESS: Patient ${created.name} registered cleanly with ID ${created.patientNumber}! Real-time allotted Dr. ${docName} & Nurse ${nurseName}.`);
       setShowRegModal(false);
       setPName('');
+      setActiveTab('search_register');
       loadData();
     } catch (err: any) {
       setMsg(`ERROR: ${err.message}`);
     }
+  };
+
+  const handleCheckInDirectPatient = (patientName: string) => {
+    const newToken = `QUEUE-00${queueList.length + 1}`;
+    setQueueList((prev) => [
+      ...prev,
+      {
+        token: newToken,
+        patient: patientName,
+        doctor: doctors[0]?.user?.name || 'Dr. Ananya Iyer',
+        dept: depts[0]?.name || 'General Consultation',
+        priority: 'ROUTINE',
+        status: 'WAITING',
+      },
+    ]);
+    setMsg(`SUCCESS: Issued Queue Token #${newToken} for ${patientName}. Added to Waiting Queue.`);
+
   };
 
   // STEP 3: BOOK APPOINTMENT
@@ -456,6 +477,73 @@ export function ReceptionistDashboard() {
                               Check-In & Issue Token 🎟️
                             </button>
                           )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* All Hospital Registered Patients Directory */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4 font-mono text-xs">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div>
+                  <h2 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                    <Users className="w-4 h-4 text-emerald-600" /> All Registered Patients Directory ({patients.length})
+                  </h2>
+                  <p className="text-xs text-slate-500">View all registered patients in database, issue queue tokens & process check-ins</p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('search_register')}
+                  className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-xl font-bold text-xs"
+                >
+                  View Full Registry 🔍
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                    <tr>
+                      <th className="p-3">PATIENT ID</th>
+                      <th className="p-3">FULL NAME</th>
+                      <th className="p-3">DOB / GENDER</th>
+                      <th className="p-3">PHONE</th>
+                      <th className="p-3">BLOOD GROUP</th>
+                      <th className="p-3">QUEUE ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {patients.slice(0, 10).map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50 transition">
+                        <td className="p-3 font-bold text-sky-800">{p.patientNumber}</td>
+                        <td className="p-3 font-extrabold text-slate-900">{p.name}</td>
+                        <td className="p-3 text-slate-600">{p.dateOfBirth?.substring(0, 10)} • {p.gender}</td>
+                        <td className="p-3 text-slate-700">{p.phone}</td>
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 bg-rose-100 text-rose-800 font-bold rounded">
+                            {p.bloodGroup || 'O+'}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleCheckInDirectPatient(p.name)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow-sm flex items-center gap-1"
+                            >
+                              <Ticket className="w-3.5 h-3.5" /> Issue Queue Token 🎟️
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedPatientId(p.id);
+                                setShowApptModal(true);
+                              }}
+                              className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-800 rounded-lg font-bold text-xs"
+                            >
+                              Book Slot 📅
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

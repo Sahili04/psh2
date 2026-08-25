@@ -53,19 +53,20 @@ export function Login() {
 
   const demoAccounts = [
     { category: 'OWNER', role: 'PLATFORM_OWNER', name: 'Software Platform Owner', email: 'owner@hospitalecho.com', pass: 'password123', desc: 'Platform Owner — Approves Hospitals & Provisions Super Admins' },
-    { category: 'ADMIN', role: 'SUPER_ADMIN', name: 'Super Admin Control', email: 'superadmin@hospital.com', pass: 'password123', desc: 'Hospital Super Admin — Provisions Dept Admins' },
+    { category: 'ADMIN', role: 'SUPER_ADMIN', name: 'Dr. Rajesh Sharma', email: 'superadmin@hospital.com', pass: 'password123', desc: 'Hospital Super Admin — Provisions Dept Admins' },
     { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'ICU Dept Admin', email: 'deptadmin@hospital.com', pass: 'password123', desc: 'ICU Department Lead — Provisions Doctors/Nurses' },
     { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Emergency Dept Admin', email: 'admin.emergency@hospital.com', pass: 'password123', desc: 'Emergency & Trauma Lead' },
     { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Cardiology Dept Admin', email: 'admin.cardiology@hospital.com', pass: 'password123', desc: 'Cardiology Unit Lead' },
     { category: 'ADMIN', role: 'DEPARTMENT_ADMIN', name: 'Neurology Dept Admin', email: 'admin.neurology@hospital.com', pass: 'password123', desc: 'Neurology Department Lead' },
 
-    { category: 'DOCTOR', role: 'DOCTOR', name: 'Dr. Sarah Jenkins', email: 'doctor@hospital.com', pass: 'password123', desc: 'ICU Lead — Clinical Decision Maker' },
-    { category: 'DOCTOR', role: 'DOCTOR', name: 'Dr. Robert Chen', email: 'doctor2@hospital.com', pass: 'password123', desc: 'Emergency Medicine Specialist' },
-    { category: 'NURSE', role: 'NURSE', name: 'Nurse Emily Watson', email: 'nurse@hospital.com', pass: 'password123', desc: 'ICU Shift Nurse — Bed Allotments & Vitals' },
-    
-    { category: 'OTHER', role: 'RECEPTIONIST', name: 'Receptionist Michael', email: 'reception@hospital.com', pass: 'password123', desc: 'Patient Check-In & Appointments Queue' },
-    { category: 'OTHER', role: 'RESOURCE_MANAGER', name: 'Resource Mgr David', email: 'resource@hospital.com', pass: 'password123', desc: 'Beds, Equipment & Priority Conflict Center' },
+    { category: 'DOCTOR', role: 'DOCTOR', name: 'Dr. Ananya Iyer', email: 'doctor@hospital.com', pass: 'password123', desc: 'ICU Lead — Clinical Decision Maker' },
+    { category: 'DOCTOR', role: 'DOCTOR', name: 'Dr. Vikramaditya Rao', email: 'doctor2@hospital.com', pass: 'password123', desc: 'Emergency Medicine Specialist' },
+    { category: 'NURSE', role: 'NURSE', name: 'Nurse Sunita Devi', email: 'nurse@hospital.com', pass: 'password123', desc: 'ICU Shift Nurse — Bed Allotments & Vitals' },
+
+    { category: 'OTHER', role: 'RECEPTIONIST', name: 'Reception Manager Ramesh', email: 'reception@hospital.com', pass: 'password123', desc: 'Patient Check-In & Appointments Queue' },
+    { category: 'OTHER', role: 'RESOURCE_MANAGER', name: 'Resource Mgr Suresh', email: 'resource@hospital.com', pass: 'password123', desc: 'Beds, Equipment & Priority Conflict Center' },
   ];
+
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

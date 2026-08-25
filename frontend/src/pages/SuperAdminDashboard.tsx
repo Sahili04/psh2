@@ -6,6 +6,7 @@ import {
   CheckCircle2, Key, ToggleLeft, ToggleRight, ArrowRightLeft, Plus, Edit, AlertTriangle, Layers, Bed, Cpu
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { PendingBedRequestsSection } from '../components/PendingBedRequestsSection';
 
 export function SuperAdminDashboard() {
   const [searchParams] = useSearchParams();
@@ -263,6 +264,7 @@ export function SuperAdminDashboard() {
       {/* TAB 1: EXECUTIVE OVERVIEW & ANALYTICS */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          <PendingBedRequestsSection />
           {/* 12 Overview KPI Gauges */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs font-mono">
             <div className="p-3 bg-sky-50 border border-sky-200 rounded-xl space-y-1">
@@ -560,70 +562,73 @@ export function SuperAdminDashboard() {
 
       {/* TAB 5: H-02 ENGINE & CONFLICT CONTROL */}
       {activeTab === 'h02_control' && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <div>
-              <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-amber-600" /> H-02 Transaction Engine & Preemption Conflict Center
-              </h2>
-              <p className="text-xs text-slate-500">Super Admin manual conflict preemption override, transaction cancellation & audit investigation</p>
+        <div className="space-y-6">
+          <PendingBedRequestsSection />
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-amber-600" /> H-02 Transaction Engine & Preemption Conflict Center
+                </h2>
+                <p className="text-xs text-slate-500">Super Admin manual conflict preemption override, transaction cancellation & audit investigation</p>
+              </div>
+              <Link
+                to="/simulation"
+                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl flex items-center gap-1.5"
+              >
+                <Zap className="w-4 h-4 fill-current" /> Open H-02 Simulation Lab
+              </Link>
             </div>
-            <Link
-              to="/simulation"
-              className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl flex items-center gap-1.5"
-            >
-              <Zap className="w-4 h-4 fill-current" /> Open H-02 Simulation Lab
-            </Link>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-mono">
-                <tr>
-                  <th className="p-3">CONFLICT ID</th>
-                  <th className="p-3">RESOURCE COMPETED FOR</th>
-                  <th className="p-3">WINNING REQUEST (GRANTED ACCESS)</th>
-                  <th className="p-3">DISPLACED REQUEST (WAITING IN QUEUE)</th>
-                  <th className="p-3">PLAIN-ENGLISH EXPLANATION</th>
-                  <th className="p-3">SUPER ADMIN ACTION</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 font-sans">
-                {conflicts.map((c, idx) => (
-                  <tr key={c.id} className="hover:bg-slate-50 transition text-xs">
-                    <td className="p-3 font-mono font-bold text-slate-900">CONFLICT-{101 + idx}</td>
-                    <td className="p-3 font-bold text-sky-800">
-                      {c.resourceId.length > 20 ? `ICU Bed #${(idx % 10) + 1} (Intensive Care Unit)` : c.resourceId}
-                    </td>
-                    <td className="p-3">
-                      <div className="font-bold text-emerald-800 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        Emergency Request (Dr. Sarah Jenkins)
-                      </div>
-                      <div className="text-[10px] font-mono text-emerald-600 mt-0.5">GRANTED PRIORITY ACCESS ✅</div>
-                    </td>
-                    <td className="p-3">
-                      <div className="font-bold text-amber-800 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                        Routine Patient Admission
-                      </div>
-                      <div className="text-[10px] font-mono text-amber-700 mt-0.5">DISPLACED TO WAITING QUEUE 🔁</div>
-                    </td>
-                    <td className="p-3 text-slate-700 font-medium max-w-xs leading-relaxed">
-                      An emergency critical care patient was granted immediate priority access over a routine check-in request.
-                    </td>
-                    <td className="p-3">
-                      <button
-                        onClick={() => handleOverrideConflict(c.id)}
-                        className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-lg text-xs font-bold font-mono transition shadow-sm"
-                      >
-                        Manual Admin Override & Reassign 🔄
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-mono">
+                  <tr>
+                    <th className="p-3">CONFLICT ID</th>
+                    <th className="p-3">RESOURCE COMPETED FOR</th>
+                    <th className="p-3">WINNING REQUEST (GRANTED ACCESS)</th>
+                    <th className="p-3">DISPLACED REQUEST (WAITING IN QUEUE)</th>
+                    <th className="p-3">PLAIN-ENGLISH EXPLANATION</th>
+                    <th className="p-3">SUPER ADMIN ACTION</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200 font-sans">
+                  {conflicts.map((c, idx) => (
+                    <tr key={c.id} className="hover:bg-slate-50 transition text-xs">
+                      <td className="p-3 font-mono font-bold text-slate-900">CONFLICT-{101 + idx}</td>
+                      <td className="p-3 font-bold text-sky-800">
+                        {c.resourceId.length > 20 ? `ICU Bed #${(idx % 10) + 1} (Intensive Care Unit)` : c.resourceId}
+                      </td>
+                      <td className="p-3">
+                        <div className="font-bold text-emerald-800 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                          Emergency Request (Dr. Sarah Jenkins)
+                        </div>
+                        <div className="text-[10px] font-mono text-emerald-600 mt-0.5">GRANTED PRIORITY ACCESS ✅</div>
+                      </td>
+                      <td className="p-3">
+                        <div className="font-bold text-amber-800 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                          Routine Patient Admission
+                        </div>
+                        <div className="text-[10px] font-mono text-amber-700 mt-0.5">DISPLACED TO WAITING QUEUE 🔁</div>
+                      </td>
+                      <td className="p-3 text-slate-700 font-medium max-w-xs leading-relaxed">
+                        An emergency critical care patient was granted immediate priority access over a routine check-in request.
+                      </td>
+                      <td className="p-3">
+                        <button
+                          onClick={() => handleOverrideConflict(c.id)}
+                          className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-lg text-xs font-bold font-mono transition shadow-sm"
+                        >
+                          Manual Admin Override & Reassign 🔄
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

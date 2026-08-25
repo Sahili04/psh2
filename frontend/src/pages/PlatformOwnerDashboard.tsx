@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import {
   ShieldCheck, Building, CheckCircle2, XCircle, Clock, AlertTriangle,
   RefreshCw, Search, Key, Sparkles, Layers, Activity, Users, Bed, Plus, Eye, Send
@@ -9,6 +10,7 @@ import { Organization } from '../types';
 
 export function PlatformOwnerDashboard() {
   const { user } = useAuth();
+  const { socket, addToast } = useSocket();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'pending' | 'approved' | 'logs'>('overview');
@@ -26,6 +28,32 @@ export function PlatformOwnerDashboard() {
   useEffect(() => {
     loadOrganizations();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleOrgCreated = (data: any) => {
+      addToast(
+        'info',
+        'New Hospital Application 🏥',
+        `Hospital "${data.organization?.name || 'New Organization'}" requested platform authorization.`
+      );
+      setMsg(`NEW HOSPITAL APPLICATION: "${data.organization?.name}" submitted registration request!`);
+      loadOrganizations();
+    };
+
+    const handleOrgUpdated = () => {
+      loadOrganizations();
+    };
+
+    socket.on('organization:created', handleOrgCreated);
+    socket.on('organization:updated', handleOrgUpdated);
+
+    return () => {
+      socket.off('organization:created', handleOrgCreated);
+      socket.off('organization:updated', handleOrgUpdated);
+    };
+  }, [socket]);
 
   const loadOrganizations = async () => {
     setLoading(true);
@@ -117,6 +145,34 @@ export function PlatformOwnerDashboard() {
         <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-mono font-bold rounded-2xl flex items-center justify-between shadow-sm">
           <span>{msg}</span>
           <button onClick={() => setMsg('')} className="text-emerald-900 font-bold text-sm">✕</button>
+        </div>
+      )}
+
+      {/* Pending Applications Action Banner */}
+      {pendingOrgs.length > 0 && (
+        <div className="p-5 bg-amber-500/10 border-2 border-amber-400 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 font-mono text-xs text-amber-950 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-amber-500 text-white rounded-2xl font-extrabold text-sm shadow animate-pulse">
+              ⏳ {pendingOrgs.length}
+            </div>
+            <div>
+              <div className="font-black text-amber-900 text-sm">
+                Action Required: {pendingOrgs.length} Hospital Application{pendingOrgs.length > 1 ? 's' : ''} Pending Authorization!
+              </div>
+              <div className="text-amber-800 text-[11px] mt-0.5">
+                Latest Request: <strong>{pendingOrgs[0]?.name}</strong> ({pendingOrgs[0]?.registrationNumber}) • Super Admin: {pendingOrgs[0]?.superAdminEmail}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setActiveTab('pending');
+              setSelectedOrg(pendingOrgs[0]);
+            }}
+            className="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl shadow transition text-xs whitespace-nowrap"
+          >
+            Authorize Hospital & Issue Credentials 🔑
+          </button>
         </div>
       )}
 

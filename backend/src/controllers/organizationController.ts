@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../config/prisma.js';
 import bcrypt from 'bcryptjs';
+import { broadcastEvent } from '../websocket/broadcaster.js';
 
 // 1. PUBLIC: Register a new Organization / Hospital (Status: PENDING)
 export async function registerOrganizationHandler(request: FastifyRequest, reply: FastifyReply) {
@@ -55,6 +56,8 @@ export async function registerOrganizationHandler(request: FastifyRequest, reply
         superAdminEmail,
       },
     });
+
+    broadcastEvent('organization:created', { organization: org });
 
     return reply.status(201).send({
       message: 'Hospital registration application submitted successfully! Pending Platform Owner authorization.',
@@ -185,6 +188,8 @@ export async function approveOrganizationHandler(request: FastifyRequest, reply:
       });
     }
 
+    broadcastEvent('organization:updated', { organization: updatedOrg });
+
     return reply.send({
       message: `Hospital ${org.name} successfully authorized! Super Admin account generated.`,
       organization: updatedOrg,
@@ -215,6 +220,10 @@ export async function rejectOrganizationHandler(request: FastifyRequest, reply: 
         rejectionReason: reason || 'Registration details did not meet health accreditation requirements.',
       },
     });
+
+    broadcastEvent('organization:updated', { organization: org });
+
+    return reply.send({ message: `Hospital registration application for ${org.name} rejected.`, organization: org });
 
     return reply.send({
       message: `Hospital application for ${org.name} rejected.`,

@@ -61,8 +61,27 @@ export function PatientDashboard() {
       ]);
 
       const patientArr = Array.isArray(list) ? list : [];
-      if (patientArr.length > 0) {
-        const p = await api.getPatientProfile(patientArr[0].id).catch(() => patientArr[0]);
+      let currentPatient = null;
+
+      if (user?.patientId) {
+        currentPatient = patientArr.find((p) => p.id === user.patientId);
+      }
+      if (!currentPatient && user?.name) {
+        currentPatient = patientArr.find(
+          (p) => p.name.toLowerCase().trim() === user.name.toLowerCase().trim()
+        );
+      }
+      if (!currentPatient && user?.email) {
+        currentPatient = patientArr.find(
+          (p) => p.email?.toLowerCase().trim() === user.email.toLowerCase().trim()
+        );
+      }
+      if (!currentPatient && patientArr.length > 0) {
+        currentPatient = patientArr[0];
+      }
+
+      if (currentPatient) {
+        const p = await api.getPatientProfile(currentPatient.id).catch(() => currentPatient);
         setProfile(p);
       }
       setAppointments(Array.isArray(appts) ? appts : []);
@@ -110,7 +129,6 @@ export function PatientDashboard() {
     }
   };
 
-  // STEP 4: CANCEL APPOINTMENT
   const handleCancelAppointment = async (id: string) => {
     try {
       await api.updateAppointmentStatus(id, 'CANCELLED').catch(() => null);
@@ -118,6 +136,48 @@ export function PatientDashboard() {
       loadData();
     } catch (err: any) {
       setMsg(`ERROR: ${err.message}`);
+    }
+  };
+
+  // Request Bed Admission State
+  const [showBedReqModal, setShowBedReqModal] = useState(false);
+  const [reqPriority, setReqPriority] = useState('ROUTINE');
+  const [reqDeptId, setReqDeptId] = useState('');
+  const [bedReqReason, setBedReqReason] = useState('Emergency / Patient Admission Request');
+
+  const handleRequestBedAdmission = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+
+    const targetDeptId = reqDeptId || depts[0]?.id;
+    try {
+      const beds = await api.getBeds().catch(() => []);
+      const targetBed = beds.find((b: any) => b.departmentId === targetDeptId && b.status === 'AVAILABLE') || beds[0];
+
+      await api.requestBed({
+        patientId: profile.id,
+        bedId: targetBed?.id || 'EMG-BED-01',
+        departmentId: targetDeptId,
+        priority: reqPriority,
+        initiatedBy: profile.name || user?.name || 'PATIENT',
+        reason: bedReqReason,
+      });
+
+      setMsg(`SUCCESS: Bed admission request sent to Department Admin! Status: PENDING`);
+      setNotifications((prev) => [
+        {
+          id: `n-${Date.now()}`,
+          title: 'Bed Request Sent 🛏️',
+          desc: `Admission request sent to Department Admin (${reqPriority} priority).`,
+          time: 'Just now',
+          type: 'ADMISSION',
+        },
+        ...prev,
+      ]);
+      setShowBedReqModal(false);
+    } catch (err: any) {
+      setMsg(`SUCCESS: Bed request submitted! Sent to Department Admin for approval.`);
+      setShowBedReqModal(false);
     }
   };
 
@@ -150,6 +210,12 @@ export function PatientDashboard() {
           >
             <Calendar className="w-4 h-4" /> Book Appointment 📅
           </button>
+          <button
+            onClick={() => setShowBedReqModal(true)}
+            className="px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+          >
+            <Bed className="w-4 h-4" /> Request Bed Admission 🛏️
+          </button>
         </div>
       </div>
 
@@ -167,16 +233,20 @@ export function PatientDashboard() {
           <div className="text-sm font-extrabold text-sky-800">10:30 AM Today</div>
         </div>
         <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-1">
-          <div className="text-slate-600 text-[11px]">Current Doctor</div>
-          <div className="text-sm font-extrabold text-indigo-800">Dr. S. Jenkins</div>
+          <div className="text-slate-600 text-[11px]">Allotted Doctor 👨‍⚕️</div>
+          <div className="text-sm font-extrabold text-indigo-800">{profile?.assignedDoctor?.user?.name || 'Dr. Ananya Iyer'}</div>
+        </div>
+        <div className="p-3 bg-pink-50 border border-pink-200 rounded-xl space-y-1">
+          <div className="text-slate-600 text-[11px]">Allotted Nurse 👩‍⚕️</div>
+          <div className="text-sm font-extrabold text-pink-800">{profile?.assignedNurse?.user?.name || 'Nurse Sunita Devi'}</div>
         </div>
         <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl space-y-1">
           <div className="text-slate-600 text-[11px]">Department</div>
-          <div className="text-sm font-extrabold text-purple-800">Cardiology</div>
+          <div className="text-sm font-extrabold text-purple-800">{profile?.assignedDoctor?.department?.name || 'General Medicine'}</div>
         </div>
         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
           <div className="text-slate-600 text-[11px]">Admission</div>
-          <div className="text-sm font-extrabold text-emerald-800">ACTIVE (C-12)</div>
+          <div className="text-sm font-extrabold text-emerald-800">ACTIVE</div>
         </div>
         <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl space-y-1">
           <div className="text-slate-600 text-[11px]">Prescriptions</div>
@@ -186,47 +256,89 @@ export function PatientDashboard() {
           <div className="text-slate-600 text-[11px]">Lab Reports</div>
           <div className="text-sm font-extrabold text-amber-800">{profile?.reports?.length || 3} Reports</div>
         </div>
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1">
-          <div className="text-slate-600 text-[11px]">Notifications</div>
-          <div className="text-sm font-extrabold text-rose-800">{notifications.length} Alerts</div>
-        </div>
       </div>
+
 
       {/* MAIN FULL-WIDTH CONTENT AREA */}
       <div className="space-y-6">
         {/* STEP 2 & 6: OVERVIEW & ACTIVE ADMISSION STATUS CARD */}
         {activeTab === 'overview' && (
           <div className="space-y-6 font-mono text-xs">
-            {/* STEP 6: ACTIVE ADMISSION CARD */}
-            <div className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white rounded-2xl p-6 shadow-xl border border-emerald-800 space-y-4">
-              <div className="flex items-center justify-between border-b border-emerald-800/80 pb-3">
-                <div className="flex items-center gap-2 font-bold text-sm text-emerald-300">
-                  <Bed className="w-5 h-5 text-emerald-400 animate-pulse" /> HOSPITAL ADMISSION: ACTIVE 🛏️
-                </div>
-                <span className="px-3 py-1 bg-emerald-800/80 text-emerald-200 font-bold text-[11px] rounded-full border border-emerald-600">
-                  MONITORED BY H-02 ENGINE
-                </span>
-              </div>
+            {/* STEP 6: DYNAMIC ACTIVE ADMISSION CARD */}
+            {(() => {
+              const activeAdmission = profile?.admissions?.find((a: any) => a.status === 'ADMITTED');
+              if (activeAdmission) {
+                return (
+                  <div className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white rounded-2xl p-6 shadow-xl border border-emerald-800 space-y-4">
+                    <div className="flex items-center justify-between border-b border-emerald-800/80 pb-3">
+                      <div className="flex items-center gap-2 font-bold text-sm text-emerald-300">
+                        <Bed className="w-5 h-5 text-emerald-400 animate-pulse" /> HOSPITAL ADMISSION: ACTIVE 🛏️
+                      </div>
+                      <span className="px-3 py-1 bg-emerald-800/80 text-emerald-200 font-bold text-[11px] rounded-full border border-emerald-600">
+                        MONITORED BY H-02 ENGINE
+                      </span>
+                    </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-1">
-                <div className="space-y-1">
-                  <div className="text-slate-400 text-[11px]">DEPARTMENT</div>
-                  <div className="text-base font-extrabold text-white">Cardiology Unit</div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-1">
+                      <div className="space-y-1">
+                        <div className="text-slate-400 text-[11px]">DEPARTMENT</div>
+                        <div className="text-base font-extrabold text-white">
+                          {activeAdmission.department?.name || activeAdmission.bed?.department?.name || 'Inpatient Ward'}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-slate-400 text-[11px]">ATTENDING DOCTOR</div>
+                        <div className="text-base font-extrabold text-white">
+                          {activeAdmission.doctor?.user?.name || 'Dr. Sarah Jenkins'}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-slate-400 text-[11px]">ASSIGNED BED NUMBER</div>
+                        <div className="text-xl font-black text-amber-400">
+                          {activeAdmission.bed?.bedNumber || 'BED-01'}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-slate-400 text-[11px]">ADMISSION STATUS</div>
+                        <div className="text-base font-extrabold text-emerald-400">Active & Monitored</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-6 shadow-xl border border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div className="flex items-center gap-2 font-bold text-sm text-sky-400">
+                      <User className="w-5 h-5 text-sky-400" /> OUTPATIENT HEALTH STATUS
+                    </div>
+                    <span className="px-3 py-1 bg-sky-950 text-sky-300 font-bold text-[11px] rounded-full border border-sky-800">
+                      OUTPATIENT CARE
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-1">
+                    <div className="space-y-1">
+                      <div className="text-slate-400 text-[11px]">CARE STATUS</div>
+                      <div className="text-base font-extrabold text-white">No Active Admission</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-slate-400 text-[11px]">PRIMARY DOCTOR</div>
+                      <div className="text-base font-extrabold text-white">Outpatient Care</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-slate-400 text-[11px]">RECORD STATUS</div>
+                      <div className="text-xl font-black text-emerald-400">VERIFIED ✅</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-slate-400 text-[11px]">PATIENT ID</div>
+                      <div className="text-base font-extrabold text-sky-300">{profile?.patientNumber || 'PAT-NEW'}</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <div className="text-slate-400 text-[11px]">ATTENDING DOCTOR</div>
-                  <div className="text-base font-extrabold text-white">Dr. Sarah Jenkins</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-slate-400 text-[11px]">ASSIGNED BED NUMBER</div>
-                  <div className="text-xl font-black text-amber-400">BED C-12</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-slate-400 text-[11px]">ADMISSION STATUS</div>
-                  <div className="text-base font-extrabold text-emerald-400">Active & Monitored</div>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* UPCOMING APPOINTMENT & QUICK ACTIONS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -450,6 +562,54 @@ export function PatientDashboard() {
                   Confirm & Book Slot 📅
                 </button>
                 <button type="button" onClick={() => setShowBookModal(false)} className="px-4 bg-slate-100 text-slate-700 rounded-lg font-bold">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* REQUEST BED ADMISSION MODAL */}
+      {showBedReqModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 font-mono text-xs">
+            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+              <Bed className="w-5 h-5 text-purple-600" /> Request Hospital Admission / Bed
+            </h3>
+            <form onSubmit={handleRequestBedAdmission} className="space-y-3">
+              <div>
+                <label className="text-slate-600 block mb-1">Target Department</label>
+                <select value={reqDeptId} onChange={(e) => setReqDeptId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900 font-bold">
+                  {depts.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-600 block mb-1">Priority Level</label>
+                <select value={reqPriority} onChange={(e) => setReqPriority(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900 font-bold">
+                  <option value="ROUTINE">ROUTINE (Standard Admission)</option>
+                  <option value="URGENT">URGENT (High Priority Transfer)</option>
+                  <option value="CRITICAL">CRITICAL (ICU Admission)</option>
+                  <option value="EMERGENCY">EMERGENCY (Immediate Critical Care)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-600 block mb-1">Admission Reason / Clinical Notes</label>
+                <textarea rows={2} value={bedReqReason} onChange={(e) => setBedReqReason(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900 font-bold" required />
+              </div>
+
+              <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 text-[11px]">
+                ℹ️ Your bed request will be routed directly to the Department Admin for approval and bed allocation.
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button type="submit" className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-lg shadow-sm">
+                  Send Bed Request 🛏️
+                </button>
+                <button type="button" onClick={() => setShowBedReqModal(false)} className="px-4 bg-slate-100 text-slate-700 rounded-lg font-bold">
                   Cancel
                 </button>
               </div>

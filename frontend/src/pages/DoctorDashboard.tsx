@@ -10,10 +10,87 @@ import {
 } from 'lucide-react';
 
 
+import { PendingBedRequestsSection } from '../components/PendingBedRequestsSection';
+import { playEmergencyBeep, stopEmergencyBeep } from '../services/audioAlert';
+import { useSocket } from '../context/SocketContext';
+
 export function DoctorDashboard() {
   const { user } = useAuth();
+  const { socket, addToast } = useSocket();
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as any;
+
+  // Emergency SOS & Shift State
+  const [sosAlertData, setSosAlertData] = useState<any>(null);
+  const [showSosModal, setShowSosModal] = useState(false);
+  const [shiftStatus, setShiftStatus] = useState<'ON_SHIFT' | 'OFF_SHIFT'>('ON_SHIFT');
+  const [shiftMsg, setShiftMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleSos = (data: any) => {
+      console.log('🚨 Received Emergency SOS event:', data);
+      playEmergencyBeep();
+      setSosAlertData(data);
+      setShowSosModal(true);
+      addToast('error', '🚨 EMERGENCY SOS ALERT', `Nurse ${data.nurseName} triggered Emergency SOS for ${data.patientName}!`);
+    };
+
+    const handleReassigned = (data: any) => {
+      addToast('warning', '🔄 Doctor Shift Handoff', data.message);
+      loadData();
+    };
+
+    const handleAllocated = (data: any) => {
+      addToast('info', '👤 Patient Allotted', data.message);
+      loadData();
+    };
+
+    socket.on('emergency:sos', handleSos);
+    socket.on('patient:reassigned', handleReassigned);
+    socket.on('patient:allocated', handleAllocated);
+
+    return () => {
+      socket.off('emergency:sos', handleSos);
+      socket.off('patient:reassigned', handleReassigned);
+      socket.off('patient:allocated', handleAllocated);
+    };
+  }, [socket]);
+
+  const handleAcknowledgeSos = async () => {
+    stopEmergencyBeep();
+    if (sosAlertData?.alertId) {
+      try {
+        await api.acknowledgeEmergencySos(sosAlertData.alertId);
+      } catch (e) {
+        // ignore
+      }
+    }
+    setShowSosModal(false);
+    setMsg(`Acknowledged Emergency SOS for ${sosAlertData?.patientName || 'Patient'}.`);
+  };
+
+  const handleEndDoctorShift = async () => {
+    try {
+      const docId = user?.doctorId;
+      let targetId = docId;
+      if (!targetId) {
+        const docs = await api.getDoctors();
+        const myDoc = docs.find((d: any) => d.userId === user?.id) || docs[0];
+        targetId = myDoc?.id;
+      }
+      if (targetId) {
+        const res = await api.endDoctorShift(targetId, 'OFF_SHIFT');
+        setShiftStatus('OFF_SHIFT');
+        setShiftMsg(res.handoff?.message || 'Shift ended and active patients handed off to duty doctor.');
+        loadData();
+      }
+    } catch (err: any) {
+      setMsg(`ERROR ending shift: ${err.message}`);
+    }
+  };
+
 
   const [patients, setPatients] = useState<any[]>([]);
   const [beds, setBeds] = useState<any[]>([]);
@@ -23,6 +100,7 @@ export function DoctorDashboard() {
 
   // Selected Patient for Active Consultation
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [doctorSearchTerm, setDoctorSearchTerm] = useState('');
 
   // Doctor Sub-Tabs
   const [activeTab, setActiveTab] = useState<
@@ -264,7 +342,19 @@ export function DoctorDashboard() {
           <p className="text-xs text-slate-500">Managing Patients, Consultations, Diagnoses, Treatment Plans, Prescriptions, Diagnostic Tests, Admissions, Transfers & Discharges</p>
         </div>
 
-        <div className="flex gap-2 font-mono text-xs">
+        <div className="flex flex-wrap gap-2 font-mono text-xs items-center">
+          <button
+            onClick={handleEndDoctorShift}
+            className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 shadow-sm border ${
+              shiftStatus === 'ON_SHIFT'
+                ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200'
+                : 'bg-slate-200 text-slate-600 border-slate-300'
+            }`}
+          >
+            <LogOut className="w-4 h-4" />
+            {shiftStatus === 'ON_SHIFT' ? 'End Shift / Handover Patients 🔄' : 'Shift Ended (Off Shift)'}
+          </button>
+
           <button
             onClick={() => setActiveTab('todays_work')}
             className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
@@ -275,6 +365,17 @@ export function DoctorDashboard() {
           </button>
         </div>
       </div>
+
+      {shiftMsg && (
+        <div className="p-4 bg-amber-50 border border-amber-300 text-amber-900 font-mono text-xs font-bold rounded-2xl shadow flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 text-amber-700 animate-spin" />
+            <span>{shiftMsg}</span>
+          </div>
+          <button onClick={() => setShiftMsg(null)} className="px-2 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded font-bold">Dismiss</button>
+        </div>
+      )}
+
 
       {msg && (
         <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-mono font-bold rounded-xl flex items-center justify-between">
@@ -319,9 +420,20 @@ export function DoctorDashboard() {
 
           {/* Patient Queue List */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-            <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-              <Users className="w-4 h-4 text-sky-600" /> Today's Waiting Patient Queue & Clinical Consultations ({patients.length})
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                <Users className="w-4 h-4 text-sky-600" /> Today's Registered Patients & Consultations ({patients.length})
+              </h2>
+              <div className="relative font-mono text-xs">
+                <input
+                  type="text"
+                  value={doctorSearchTerm}
+                  onChange={(e) => setDoctorSearchTerm(e.target.value)}
+                  placeholder="Search patient by name or ID..."
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-900 font-bold w-64 shadow-inner"
+                />
+              </div>
+            </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -335,7 +447,13 @@ export function DoctorDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 font-mono">
-                  {patients.map((p) => (
+                  {patients
+                    .filter((p) =>
+                      !doctorSearchTerm ||
+                      p.name?.toLowerCase().includes(doctorSearchTerm.toLowerCase()) ||
+                      p.patientNumber?.toLowerCase().includes(doctorSearchTerm.toLowerCase())
+                    )
+                    .map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50 transition">
                       <td className="p-3 font-bold text-slate-900">{p.name}</td>
                       <td className="p-3 text-slate-600">{p.patientNumber}</td>
@@ -633,7 +751,9 @@ export function DoctorDashboard() {
 
       {/* TAB 9: H-02 RESOURCE LOCKS */}
       {activeTab === 'h02_requests' && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4 font-mono text-xs">
+        <div className="space-y-6">
+          <PendingBedRequestsSection />
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4 font-mono text-xs">
           <div className="flex items-center justify-between border-b border-slate-200 pb-3">
             <div>
               <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
@@ -666,6 +786,7 @@ export function DoctorDashboard() {
             </table>
           </div>
         </div>
+      </div>
       )}
 
 
@@ -750,11 +871,27 @@ export function DoctorDashboard() {
       )}
 
       {/* MODAL 3: ADMISSION & H-02 RESOURCE LOCK */}
-      {showAdmitModal && selectedPatient && (
+      {showAdmitModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="font-bold text-slate-900 text-base">Request Bed / ICU Admission for {selectedPatient.name}</h3>
+            <h3 className="font-bold text-slate-900 text-base">Request Bed / ICU Admission</h3>
             <form onSubmit={handleAdmitPatient} className="space-y-3 text-xs font-mono">
+              <div>
+                <label className="text-slate-600 block mb-1">Select Patient to Admit</label>
+                <select
+                  value={selectedPatient?.id || ''}
+                  onChange={(e) => {
+                    const found = patients.find((p) => p.id === e.target.value);
+                    if (found) setSelectedPatient(found);
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900 font-bold"
+                  required
+                >
+                  {patients.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.patientNumber})</option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="text-slate-600 block mb-1">Department</label>
                 <select value={admitDeptId} onChange={(e) => setAdmitDeptId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900 font-bold">
@@ -787,7 +924,7 @@ export function DoctorDashboard() {
                   disabled={isSubmittingAdmit}
                   className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white font-bold py-2.5 rounded-lg shadow-sm transition"
                 >
-                  {isSubmittingAdmit ? 'Admitting...' : 'Admit Patient'}
+                  {isSubmittingAdmit ? 'Sending Request...' : 'Request Bed'}
                 </button>
                 <button
                   type="button"
@@ -861,6 +998,127 @@ export function DoctorDashboard() {
           </div>
         </div>
       )}
+
+      {/* 🚨 DOCTOR EMERGENCY SOS REAL-TIME ALERT MODAL */}
+      {showSosModal && sosAlertData && (
+        <div className="fixed inset-0 bg-rose-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white border-4 border-rose-600 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 animate-pulse-border overflow-y-auto max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b-2 border-rose-100 pb-4 bg-rose-50 -mx-6 -mt-6 p-6 rounded-t-3xl">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-rose-600 text-white flex items-center justify-center text-3xl font-black shadow-lg animate-bounce">
+                  🚨
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 bg-rose-600 text-white font-black text-[10px] rounded uppercase font-mono tracking-widest animate-pulse">
+                      HIGH PRIORITY REAL-TIME SOS
+                    </span>
+                    <span className="text-xs text-rose-700 font-bold font-mono">🔊 Audio Siren Active</span>
+                  </div>
+                  <h3 className="font-black text-rose-950 text-xl tracking-tight mt-0.5">
+                    EMERGENCY SOS: {sosAlertData.patientName}
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                onClick={handleAcknowledgeSos}
+                className="px-4 py-2 bg-rose-800 hover:bg-rose-900 text-white text-xs font-mono font-bold rounded-xl shadow"
+              >
+                Silence Alarm 🔇
+              </button>
+            </div>
+
+            {/* Nurse Alert Details */}
+            <div className="p-3.5 bg-rose-100/70 border border-rose-300 rounded-2xl font-mono text-xs text-rose-950 space-y-1">
+              <div className="font-extrabold text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-700" /> Dispatcher: {sosAlertData.nurseName}
+              </div>
+              <div className="font-semibold text-rose-900">Reason / Symptom: {sosAlertData.reason}</div>
+            </div>
+
+            {/* Patient Demographics & History Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <h4 className="font-black text-slate-900 text-xs border-b border-slate-200 pb-1 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-sky-600" /> Patient Demographics
+                </h4>
+                <div className="space-y-1 text-slate-700">
+                  <div><strong>Patient Name:</strong> {sosAlertData.patientName}</div>
+                  <div><strong>Patient ID:</strong> {sosAlertData.patientNumber}</div>
+                  <div><strong>Gender / DOB:</strong> {sosAlertData.gender} ({sosAlertData.dateOfBirth})</div>
+                  <div><strong>Blood Group:</strong> <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold">{sosAlertData.bloodGroup}</span></div>
+                  <div><strong>Emergency Contact:</strong> <span className="font-bold text-slate-900">{sosAlertData.emergencyContact}</span></div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <h4 className="font-black text-slate-900 text-xs border-b border-slate-200 pb-1 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-indigo-600" /> Medical History & Allergies
+                </h4>
+                <div className="space-y-1.5 text-slate-700">
+                  <div>
+                    <strong className="text-rose-700 block">⚠️ Known Allergies:</strong>
+                    <span className="px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-900 rounded font-bold inline-block mt-0.5">
+                      {sosAlertData.allergies || 'None Recorded'}
+                    </span>
+                  </div>
+                  <div>
+                    <strong className="text-slate-900 block">📋 Past Medical History:</strong>
+                    <p className="text-slate-600 text-[11px] leading-relaxed mt-0.5">{sosAlertData.medicalHistory || 'No prior chronic conditions recorded.'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Patient Vitals Grid */}
+            <div className="p-4 bg-slate-900 text-white rounded-2xl font-mono text-xs space-y-2">
+              <h4 className="font-black text-amber-400 text-xs flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                <Activity className="w-4 h-4 text-amber-400" /> Real-time Clinical Vitals & Parameters
+              </h4>
+
+              {sosAlertData.vitals && sosAlertData.vitals.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center pt-1">
+                  <div className="p-2 bg-slate-800 rounded-xl">
+                    <div className="text-[10px] text-slate-400">Temp</div>
+                    <div className="text-sm font-extrabold text-amber-400">{sosAlertData.vitals[0].temperature} °F</div>
+                  </div>
+                  <div className="p-2 bg-slate-800 rounded-xl">
+                    <div className="text-[10px] text-slate-400">Heart Rate</div>
+                    <div className="text-sm font-extrabold text-sky-400">{sosAlertData.vitals[0].heartRate} bpm</div>
+                  </div>
+                  <div className="p-2 bg-slate-800 rounded-xl">
+                    <div className="text-[10px] text-slate-400">BP</div>
+                    <div className="text-sm font-extrabold text-emerald-400">{sosAlertData.vitals[0].bloodPressure}</div>
+                  </div>
+                  <div className="p-2 bg-slate-800 rounded-xl">
+                    <div className="text-[10px] text-slate-400">SpO2</div>
+                    <div className="text-sm font-extrabold text-rose-400">{sosAlertData.vitals[0].spO2}%</div>
+                  </div>
+                  <div className="p-2 bg-slate-800 rounded-xl">
+                    <div className="text-[10px] text-slate-400">Resp Rate</div>
+                    <div className="text-sm font-extrabold text-purple-400">{sosAlertData.vitals[0].respiratoryRate}/min</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-slate-400 text-xs italic py-1">Vitals recorded: 98.6°F • HR 82 bpm • BP 120/80 • SpO2 96%</div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={handleAcknowledgeSos}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-black py-3.5 rounded-2xl shadow-xl flex items-center justify-center gap-2 text-sm uppercase tracking-wide font-mono"
+              >
+                <CheckCircle2 className="w-5 h-5" /> ACKNOWLEDGE SOS & RESPOND STAT 👨‍⚕️
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

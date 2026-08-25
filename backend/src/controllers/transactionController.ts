@@ -31,6 +31,11 @@ export async function getTransactionDetailHandler(request: FastifyRequest, reply
   return reply.send(transaction);
 }
 
+import {
+  TransactionType, TransactionPriority, TransactionStatus,
+  ResourceType, EventType, EventStatus, BedStatus
+} from '../types/domain.js';
+
 export async function createManualTransactionHandler(request: FastifyRequest, reply: FastifyReply) {
   const body = request.body as any;
   const result = await TransactionEngine.executeTransaction({
@@ -44,6 +49,219 @@ export async function createManualTransactionHandler(request: FastifyRequest, re
     simulateFailureStep: body.simulateFailureStep,
   });
   return reply.send(result);
+}
+
+export async function createPendingBedRequestHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { patientId, departmentId, doctorId, bedId, priority, reason, initiatedBy } = request.body as any;
+
+  if (!patientId || !bedId) {
+    return reply.status(400).send({ error: 'Patient and Bed are required' });
+  }
+
+  const txNumber = `REQ-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  const transaction = await prisma.transaction.create({
+    data: {
+      transactionNumber: txNumber,
+      patientId,
+      initiatedBy: initiatedBy || doctorId || 'DOCTOR',
+      type: TransactionType.PATIENT_ADMISSION,
+      priority: priority || TransactionPriority.ROUTINE,
+      status: TransactionStatus.REQUESTED, // REQUESTED represents Pending
+      resourceType: ResourceType.BED,
+      resourceId: bedId,
+    },
+    include: {
+      patient: true,
+    },
+  });
+
+  await prisma.event.create({
+    data: {
+      eventId: `EVT-${transaction.id}-1`,
+      transactionId: transaction.id,
+      eventType: EventType.RESOURCE_REQUESTED,
+      sequenceNumber: 1,
+      payload: JSON.stringify({ bedId, priority, departmentId, doctorId, reason }),
+      status: EventStatus.PROCESSED,
+      processedAt: new Date(),
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: initiatedBy || 'DOCTOR',
+      transactionId: transaction.id,
+      action: 'BED_REQUEST_SUBMITTED',
+      entityType: 'Bed',
+      entityId: bedId,
+      newState: TransactionStatus.REQUESTED,
+      reason: reason || 'Bed admission requested by doctor. Pending allocation approval.',
+    },
+  });
+
+  broadcastEvent('transaction:created', { transaction, message: 'Bed request sent.' });
+  return reply.send({ transaction, message: 'Bed request sent.' });
+}
+
+export async function acceptBedRequestHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as any;
+  const { acceptedBy } = request.body as any;
+
+  const tx = await prisma.transaction.findUnique({
+    where: { id },
+    include: { patient: true, events: true },
+  });
+
+  if (!tx) return reply.status(404).send({ error: 'Request not found' });
+  if (tx.status === TransactionStatus.COMMITTED) {
+    return reply.status(400).send({ error: 'Request is already approved and completed.' });
+  }
+
+  let departmentId = undefined;
+  let doctorId = undefined;
+  let reason = undefined;
+
+  const firstEvt = tx.events.find((e) => e.eventType === EventType.RESOURCE_REQUESTED);
+  if (firstEvt && firstEvt.payload) {
+    try {
+      const p = JSON.parse(firstEvt.payload);
+      departmentId = p.departmentId;
+      doctorId = p.doctorId;
+      reason = p.reason;
+    } catch (e) {}
+  }
+
+  const result = await TransactionEngine.executeTransaction({
+    transactionNumber: tx.transactionNumber,
+    patientId: tx.patientId || undefined,
+    initiatedBy: acceptedBy || 'RESOURCE_MANAGER',
+    type: tx.type,
+    priority: tx.priority,
+    resourceType: tx.resourceType,
+    resourceId: tx.resourceId,
+    departmentId,
+    doctorId,
+    reason: reason || 'Bed request accepted and allocated.',
+  });
+
+  const bed = await prisma.bed.findUnique({ where: { id: tx.resourceId } });
+  const bedNumber = bed?.bedNumber || 'BED';
+
+  broadcastEvent('transaction:updated', {
+    transaction: result.transaction,
+    status: 'APPROVED',
+    bedNumber,
+    message: `Bed request approved. Bed ${bedNumber} assigned.`,
+  });
+
+  return reply.send({
+    result,
+    bedNumber,
+    message: `Bed request approved. Bed ${bedNumber} assigned.`,
+  });
+}
+
+export async function rejectBedRequestHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as any;
+  const { rejectedBy, reason } = request.body as any;
+
+  const tx = await prisma.transaction.findUnique({
+    where: { id },
+    include: { patient: true },
+  });
+
+  if (!tx) return reply.status(404).send({ error: 'Request not found' });
+
+  const rejectedTx = await prisma.transaction.update({
+    where: { id },
+    data: {
+      status: TransactionStatus.CANCELLED,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: rejectedBy || 'RESOURCE_MANAGER',
+      transactionId: tx.id,
+      action: 'BED_REQUEST_REJECTED',
+      entityType: 'Bed',
+      entityId: tx.resourceId,
+      oldState: tx.status,
+      newState: TransactionStatus.CANCELLED,
+      reason: reason || 'Bed request rejected by Resource Manager.',
+    },
+  });
+
+  broadcastEvent('transaction:updated', {
+    transaction: rejectedTx,
+    status: 'REJECTED',
+    message: 'Bed request rejected.',
+  });
+
+  return reply.send({
+    transaction: rejectedTx,
+    message: 'Bed request rejected.',
+  });
+}
+
+export async function offerAlternativeBedHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as any;
+  const { newBedId, offeredBy, reason } = request.body as any;
+
+  const tx = await prisma.transaction.findUnique({
+    where: { id },
+    include: { patient: true, events: true },
+  });
+
+  if (!tx) return reply.status(404).send({ error: 'Request not found' });
+  if (!newBedId) return reply.status(400).send({ error: 'Alternative bed ID is required' });
+
+  let departmentId = undefined;
+  let doctorId = undefined;
+
+  const firstEvt = tx.events.find((e) => e.eventType === EventType.RESOURCE_REQUESTED);
+  if (firstEvt && firstEvt.payload) {
+    try {
+      const p = JSON.parse(firstEvt.payload);
+      departmentId = p.departmentId;
+      doctorId = p.doctorId;
+    } catch (e) {}
+  }
+
+  const result = await TransactionEngine.executeTransaction({
+    transactionNumber: tx.transactionNumber,
+    patientId: tx.patientId || undefined,
+    initiatedBy: offeredBy || 'DEPARTMENT_ADMIN',
+    type: tx.type,
+    priority: tx.priority,
+    resourceType: ResourceType.BED,
+    resourceId: newBedId,
+    departmentId,
+    doctorId,
+    reason: reason || 'Offered alternative bed at another department.',
+  });
+
+  const bed = await prisma.bed.findUnique({
+    where: { id: newBedId },
+    include: { department: true },
+  });
+  const bedNumber = bed?.bedNumber || 'BED';
+  const deptName = bed?.department?.name || 'Department';
+
+  broadcastEvent('transaction:updated', {
+    transaction: result.transaction,
+    status: 'APPROVED',
+    bedNumber,
+    message: `Alternative bed ${bedNumber} in ${deptName} offered and assigned.`,
+  });
+
+  return reply.send({
+    result,
+    bedNumber,
+    deptName,
+    message: `Alternative bed ${bedNumber} in ${deptName} offered and assigned.`,
+  });
 }
 
 export async function getConflictsHandler(request: FastifyRequest, reply: FastifyReply) {
