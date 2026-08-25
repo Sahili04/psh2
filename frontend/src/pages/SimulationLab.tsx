@@ -66,6 +66,20 @@ export function SimulationLab() {
       badge: 'SAGA ROLLBACK',
     },
     {
+      id: 'MULTI_RESOURCE_SUCCESS',
+      title: 'Multi-Resource Atomic (Success)',
+      desc: 'Allocate ICU Bed + Doctor + Ventilator atomically — all succeed ✓',
+      color: 'hover:border-green-500/50 text-green-400',
+      badge: 'ATOMIC COMMIT',
+    },
+    {
+      id: 'MULTI_RESOURCE_VENTILATOR_FAIL',
+      title: 'Multi-Resource Rollback (Ventilator Fail)',
+      desc: 'Bed ✓ Doctor ✓ Ventilator ✗ → Auto rollback Bed + Doctor',
+      color: 'hover:border-orange-500/50 text-orange-400',
+      badge: 'MULTI ROLLBACK',
+    },
+    {
       id: 'NETWORK_TIMEOUT',
       title: 'Network Retry Resilience',
       desc: 'Simulate client network dropped packets and state recovery',
