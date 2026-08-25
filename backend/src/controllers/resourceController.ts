@@ -55,7 +55,11 @@ export async function reserveBedHandler(request: FastifyRequest, reply: FastifyR
 
 export async function getDoctorsHandler(request: FastifyRequest, reply: FastifyReply) {
   const doctors = await prisma.doctor.findMany({
-    include: { user: true, department: true },
+    include: {
+      user: true,
+      department: true,
+      assignedPatients: { select: { id: true, name: true, patientNumber: true, status: true } },
+    },
     orderBy: { specialization: 'asc' },
   });
   return reply.send(doctors);
@@ -64,14 +68,104 @@ export async function getDoctorsHandler(request: FastifyRequest, reply: FastifyR
 export async function updateDoctorStatusHandler(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.params as any;
   const { availabilityStatus, shift } = request.body as any;
+
+  if (availabilityStatus === 'OFF_SHIFT' || shift === 'OFF_SHIFT' || availabilityStatus === 'ON_LEAVE') {
+    return endDoctorShiftHandler(request, reply);
+  }
+
   const doctor = await prisma.doctor.update({
     where: { id },
     data: { availabilityStatus, shift },
-    include: { user: true, department: true },
+    include: { user: true, department: true, assignedPatients: true },
   });
   broadcastEvent('resource:updated', { resourceType: 'DOCTOR', resource: doctor });
   return reply.send(doctor);
 }
+
+export async function endDoctorShiftHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as any;
+  const { newAvailabilityStatus } = (request.body as any) || {};
+
+  const currentDoctor = await prisma.doctor.findUnique({
+    where: { id },
+    include: { user: true, department: true, assignedPatients: true },
+  });
+
+  if (!currentDoctor) return reply.status(404).send({ error: 'Doctor not found' });
+
+  const nextStatus = newAvailabilityStatus || 'OFF_SHIFT';
+  const updatedDoc = await prisma.doctor.update({
+    where: { id },
+    data: { availabilityStatus: nextStatus, shift: 'OFF_SHIFT' },
+    include: { user: true, department: true },
+  });
+
+  const assignedPatients = await prisma.patient.findMany({
+    where: { assignedDoctorId: id, status: { in: ['ACTIVE', 'ADMITTED'] } },
+  });
+
+  let reallocatedCount = 0;
+  let targetDoctor: any = null;
+
+  if (assignedPatients.length > 0) {
+    let altDocs = await prisma.doctor.findMany({
+      where: {
+        id: { not: id },
+        departmentId: currentDoctor.departmentId,
+        availabilityStatus: 'AVAILABLE',
+      },
+      include: { assignedPatients: true, user: true, department: true },
+    });
+
+    if (altDocs.length === 0) {
+      altDocs = await prisma.doctor.findMany({
+        where: {
+          id: { not: id },
+          availabilityStatus: 'AVAILABLE',
+        },
+        include: { assignedPatients: true, user: true, department: true },
+      });
+    }
+
+    if (altDocs.length > 0) {
+      targetDoctor = altDocs.sort((a, b) => a.assignedPatients.length - b.assignedPatients.length)[0];
+
+      for (const p of assignedPatients) {
+        await prisma.patient.update({
+          where: { id: p.id },
+          data: { assignedDoctorId: targetDoctor.id },
+        });
+
+        await prisma.admission.updateMany({
+          where: { patientId: p.id, status: 'ADMITTED' },
+          data: { doctorId: targetDoctor.id },
+        });
+      }
+      reallocatedCount = assignedPatients.length;
+    }
+  }
+
+  const handoffPayload = {
+    previousDoctorId: id,
+    previousDoctorName: currentDoctor.user.name,
+    newDoctorId: targetDoctor?.id || null,
+    newDoctorName: targetDoctor?.user?.name || 'Duty Doctor Team',
+    patientCount: reallocatedCount,
+    patientNames: assignedPatients.map((p) => p.name),
+    message: reallocatedCount > 0
+      ? `Shift Handoff Complete: ${reallocatedCount} patient(s) reassigned from Dr. ${currentDoctor.user.name} to Dr. ${targetDoctor?.user?.name}.`
+      : `Dr. ${currentDoctor.user.name}'s shift ended. No active patients needed handoff.`,
+  };
+
+  broadcastEvent('doctor:shift_ended', handoffPayload);
+  broadcastEvent('patient:reassigned', handoffPayload);
+
+  return reply.send({
+    doctor: updatedDoc,
+    handoff: handoffPayload,
+  });
+}
+
 
 export async function getEquipmentHandler(request: FastifyRequest, reply: FastifyReply) {
   const equipment = await prisma.equipment.findMany({

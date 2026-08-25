@@ -9,14 +9,15 @@ import {
 } from '../controllers/organizationController.js';
 import {
   getBedsHandler, createBedHandler, updateBedStatusHandler, reserveBedHandler,
-  getDoctorsHandler, updateDoctorStatusHandler, getEquipmentHandler, createEquipmentHandler,
+  getDoctorsHandler, updateDoctorStatusHandler, endDoctorShiftHandler, getEquipmentHandler, createEquipmentHandler,
   updateEquipmentStatusHandler, surveyEquipmentHandler, getEquipmentSurveysHandler, getOTsHandler, updateOTStatusHandler, getDepartmentsHandler, createDepartmentHandler
 } from '../controllers/resourceController.js';
 import {
   getPatientsHandler, createPatientHandler, getPatientProfileHandler, admitPatientHandler,
   transferPatientHandler, dischargePatientHandler, getAppointmentsHandler, createAppointmentHandler,
   updateAppointmentStatusHandler, createConsultationHandler, createPrescriptionHandler,
-  createReportHandler, createVitalHandler, updateCareTaskHandler
+  createReportHandler, createVitalHandler, updateCareTaskHandler, triggerEmergencySosHandler,
+  acknowledgeEmergencySosHandler, getEmergencyAlertsHandler
 } from '../controllers/patientController.js';
 import {
   getTransactionsHandler, getTransactionDetailHandler, createManualTransactionHandler,
@@ -54,6 +55,7 @@ export async function registerApiRoutes(fastify: FastifyInstance) {
 
   fastify.get('/api/resources/doctors', getDoctorsHandler);
   fastify.patch('/api/resources/doctors/:id', updateDoctorStatusHandler);
+  fastify.post('/api/resources/doctors/:id/end-shift', endDoctorShiftHandler);
 
   fastify.get('/api/resources/equipment', getEquipmentHandler);
   fastify.post('/api/resources/equipment', createEquipmentHandler);
@@ -68,10 +70,16 @@ export async function registerApiRoutes(fastify: FastifyInstance) {
   fastify.get('/api/patients', getPatientsHandler);
   fastify.post('/api/patients', createPatientHandler);
   fastify.get('/api/patients/:id', getPatientProfileHandler);
+  fastify.post('/api/patients/:id/emergency-sos', triggerEmergencySosHandler);
+
+  // Emergency Alerts
+  fastify.get('/api/emergency-alerts', getEmergencyAlertsHandler);
+  fastify.post('/api/emergency-alerts/:id/acknowledge', acknowledgeEmergencySosHandler);
 
   fastify.post('/api/admissions/admit', admitPatientHandler);
   fastify.post('/api/admissions/transfer', transferPatientHandler);
   fastify.post('/api/admissions/discharge', dischargePatientHandler);
+
 
   // Appointments & Medical
   fastify.get('/api/appointments', getAppointmentsHandler);

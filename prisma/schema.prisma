@@ -1,7 +1,7 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../backend/node_modules/.prisma/client"
 }
+
 
 datasource db {
   provider = "sqlite"
@@ -80,6 +80,8 @@ model Doctor {
   
   user               User               @relation(fields: [userId], references: [id])
   department         Department         @relation(fields: [departmentId], references: [id])
+  assignedPatients   Patient[]          @relation("PatientDoctor")
+  emergencyAlerts    EmergencyAlert[]
   appointments       Appointment[]
   admissions         Admission[]
   consultations      Consultation[]
@@ -88,14 +90,16 @@ model Doctor {
 }
 
 model Nurse {
-  id           String     @id @default(uuid())
-  userId       String     @unique
-  departmentId String
-  shift        String     @default("DAY")
+  id               String           @id @default(uuid())
+  userId           String           @unique
+  departmentId     String
+  shift            String           @default("DAY")
   
-  user         User       @relation(fields: [userId], references: [id])
-  department   Department @relation(fields: [departmentId], references: [id])
-  careTasks    CareTask[]
+  user             User             @relation(fields: [userId], references: [id])
+  department       Department       @relation(fields: [departmentId], references: [id])
+  assignedPatients Patient[]        @relation("PatientNurse")
+  emergencyAlerts  EmergencyAlert[]
+  careTasks        CareTask[]
 }
 
 model Patient {
@@ -113,6 +117,11 @@ model Patient {
   priority         String            @default("ROUTINE") // EMERGENCY, CRITICAL, URGENT, ROUTINE
   status           String            @default("ACTIVE")
   
+  assignedDoctorId String?
+  assignedNurseId  String?
+  assignedDoctor   Doctor?           @relation("PatientDoctor", fields: [assignedDoctorId], references: [id])
+  assignedNurse    Nurse?            @relation("PatientNurse", fields: [assignedNurseId], references: [id])
+
   appointments     Appointment[]
   admissions       Admission[]
   consultations    Consultation[]
@@ -122,7 +131,23 @@ model Patient {
   resourceRequests ResourceRequest[]
   vitals           Vital[]
   careTasks        CareTask[]
+  emergencyAlerts  EmergencyAlert[]
 }
+
+model EmergencyAlert {
+  id        String   @id @default(uuid())
+  patientId String
+  nurseId   String
+  doctorId  String
+  reason    String   @default("Emergency SOS Triggered by Nurse")
+  status    String   @default("ACTIVE") // ACTIVE, ACKNOWLEDGED, RESOLVED
+  createdAt DateTime @default(now())
+
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  nurse     Nurse    @relation(fields: [nurseId], references: [id])
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+}
+
 
 model Bed {
   id               String       @id @default(uuid())

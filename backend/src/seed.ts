@@ -9,9 +9,10 @@ import {
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting H-02 Hospital System Database Seeding...');
+  console.log('🌱 Starting H-02 Hospital System Database Seeding with Indian Dataset...');
 
   // Clean up database
+  await prisma.emergencyAlert.deleteMany();
   await prisma.conflict.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.event.deleteMany();
@@ -40,33 +41,33 @@ async function main() {
   // 0. Create Default Authorized Hospital / Organization
   const mainOrg = await prisma.organization.create({
     data: {
-      name: 'MetroHealth Central Hospital',
+      name: 'Apollo Multi-Specialty Hospital',
       code: 'HOSP-001',
-      registrationNumber: 'REG-METRO-2026',
-      email: 'contact@metrohealth.org',
-      phone: '+1-800-METRO-MED',
-      address: '100 Healthcare Boulevard, Suite 500',
-      city: 'Metropolis',
+      registrationNumber: 'REG-APOLLO-2026',
+      email: 'contact@apollohospital.in',
+      phone: '+91-800-APOLLO-MED',
+      address: '100 Healthcare Boulevard, Outer Ring Road',
+      city: 'Bengaluru',
       hospitalType: 'MULTI_SPECIALTY',
       status: 'APPROVED',
-      superAdminName: 'Super Admin Control',
+      superAdminName: 'Dr. Rajesh Sharma',
       superAdminEmail: 'superadmin@hospital.com',
     },
   });
 
-  // Also seed a Pending Organization Request for testing Platform Owner approval
+  // Seed a Pending Organization Request for Platform Owner testing
   await prisma.organization.create({
     data: {
-      name: 'Apex Trauma & Cardiac Center',
+      name: 'Max Heart & Trauma Center',
       code: 'HOSP-4099',
-      registrationNumber: 'REG-APEX-9988',
-      email: 'info@apextrauma.org',
-      phone: '+1-888-APEX-CARE',
-      address: '750 Emergency Expressway',
-      city: 'Gotham City',
+      registrationNumber: 'REG-MAX-9988',
+      email: 'info@maxheart.in',
+      phone: '+91-888-MAX-CARE',
+      address: '750 Emergency Expressway, Aerocity',
+      city: 'New Delhi',
       hospitalType: 'CARDIAC_TRAUMA_SPECIALTY',
       status: 'PENDING',
-      superAdminName: 'Dr. Alexander Vance (Director)',
+      superAdminName: 'Dr. Vikramaditya Rao (Director)',
       superAdminEmail: 'vance@apextrauma.org',
     },
   });
@@ -103,28 +104,28 @@ async function main() {
     depts[d.name] = created;
   }
 
-  // 2. Create Software Platform Owner + Super Admin + Department Admins
+  // 2. Create Platform Owner + Super Admin + Department Admins + Core Users
   const demoUsers = [
     { name: 'Software Platform Owner', email: 'owner@hospitalecho.com', role: 'PLATFORM_OWNER', dept: null, org: null },
-    { name: 'Super Admin Control', email: 'superadmin@hospital.com', role: Role.SUPER_ADMIN, dept: null, org: mainOrg.id },
-    { name: 'Emergency Dept Admin', email: 'admin.emergency@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Emergency & Trauma'].id, org: mainOrg.id },
-    { name: 'Cardiology Dept Admin', email: 'admin.cardiology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Cardiology Unit'].id, org: mainOrg.id },
-    { name: 'Neurology Dept Admin', email: 'admin.neurology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Neurology Department'].id, org: mainOrg.id },
-    { name: 'Orthopedics Dept Admin', email: 'admin.orthopedics@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Orthopedics Center'].id, org: mainOrg.id },
-    { name: 'Pediatrics Dept Admin', email: 'admin.pediatrics@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Pediatrics Ward'].id, org: mainOrg.id },
-    { name: 'Oncology Dept Admin', email: 'admin.oncology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Oncology Center'].id, org: mainOrg.id },
-    { name: 'General Medicine Admin', email: 'admin.general@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['General Medicine'].id, org: mainOrg.id },
-    { name: 'Surgical Suite Admin', email: 'admin.surgery@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Surgical Suite'].id, org: mainOrg.id },
-    { name: 'ICU Department Admin', email: 'deptadmin@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
-    { name: 'Radiology Dept Admin', email: 'admin.radiology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Radiology & Imaging'].id, org: mainOrg.id },
+    { name: 'Dr. Rajesh Sharma (Super Admin)', email: 'superadmin@hospital.com', role: Role.SUPER_ADMIN, dept: null, org: mainOrg.id },
+    { name: 'Emergency Admin - Dr. Vikramaditya', email: 'admin.emergency@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Emergency & Trauma'].id, org: mainOrg.id },
+    { name: 'Cardiology Admin - Dr. Sunita', email: 'admin.cardiology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Cardiology Unit'].id, org: mainOrg.id },
+    { name: 'Neurology Admin - Dr. Rohan', email: 'admin.neurology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Neurology Department'].id, org: mainOrg.id },
+    { name: 'Orthopedics Admin - Dr. Kavita', email: 'admin.orthopedics@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Orthopedics Center'].id, org: mainOrg.id },
+    { name: 'Pediatrics Admin - Dr. Priya', email: 'admin.pediatrics@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Pediatrics Ward'].id, org: mainOrg.id },
+    { name: 'Oncology Admin - Dr. Amitav', email: 'admin.oncology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Oncology Center'].id, org: mainOrg.id },
+    { name: 'General Medicine Admin - Dr. Suresh', email: 'admin.general@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['General Medicine'].id, org: mainOrg.id },
+    { name: 'Surgical Suite Admin - Dr. Meenakshi', email: 'admin.surgery@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Surgical Suite'].id, org: mainOrg.id },
+    { name: 'ICU Dept Admin - Dr. Ananya', email: 'deptadmin@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
+    { name: 'Radiology Dept Admin - Dr. Arvind', email: 'admin.radiology@hospital.com', role: Role.DEPARTMENT_ADMIN, dept: depts['Radiology & Imaging'].id, org: mainOrg.id },
 
-    // Staff & Patients
-    { name: 'Dr. Sarah Jenkins', email: 'doctor@hospital.com', role: Role.DOCTOR, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
-    { name: 'Dr. Robert Chen', email: 'doctor2@hospital.com', role: Role.DOCTOR, dept: depts['Emergency & Trauma'].id, org: mainOrg.id },
-    { name: 'Nurse Emily Watson', email: 'nurse@hospital.com', role: Role.NURSE, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
-    { name: 'Reception Manager Michael', email: 'reception@hospital.com', role: Role.RECEPTIONIST, dept: depts['General Medicine'].id, org: mainOrg.id },
-    { name: 'Resource Mgr David', email: 'resource@hospital.com', role: Role.RESOURCE_MANAGER, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
-    { name: 'Patient John Doe', email: 'patient@hospital.com', role: Role.PATIENT, dept: null, org: mainOrg.id },
+    // Staff & Demo Patient
+    { name: 'Dr. Ananya Iyer', email: 'doctor@hospital.com', role: Role.DOCTOR, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
+    { name: 'Dr. Vikramaditya Rao', email: 'doctor2@hospital.com', role: Role.DOCTOR, dept: depts['Emergency & Trauma'].id, org: mainOrg.id },
+    { name: 'Nurse Sunita Devi', email: 'nurse@hospital.com', role: Role.NURSE, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
+    { name: 'Reception Manager Ramesh', email: 'reception@hospital.com', role: Role.RECEPTIONIST, dept: depts['General Medicine'].id, org: mainOrg.id },
+    { name: 'Resource Mgr Suresh', email: 'resource@hospital.com', role: Role.RESOURCE_MANAGER, dept: depts['Intensive Care Unit (ICU)'].id, org: mainOrg.id },
+    { name: 'Patient Rahul Verma', email: 'patient@hospital.com', role: Role.PATIENT, dept: null, org: mainOrg.id },
   ];
 
   const users: Record<string, any> = {};
@@ -142,23 +143,23 @@ async function main() {
     users[u.email] = created;
   }
 
-  // 3. Create 15 Doctors
+  // 3. Create 15 Doctors with Indian Names
   const doctorSpecs = [
-    { name: 'Dr. Sarah Jenkins', email: 'doctor@hospital.com', spec: 'Critical Care & ICU', lic: 'LIC-ICU-001', dept: depts['Intensive Care Unit (ICU)'] },
-    { name: 'Dr. Robert Chen', email: 'doctor2@hospital.com', spec: 'Emergency Medicine', lic: 'LIC-EMG-002', dept: depts['Emergency & Trauma'] },
-    { name: 'Dr. Arthur Pendelton', email: 'dr.arthur@hospital.com', spec: 'Cardiology', lic: 'LIC-CAR-003', dept: depts['Cardiology Unit'] },
-    { name: 'Dr. Elena Rostova', email: 'dr.elena@hospital.com', spec: 'Neurology', lic: 'LIC-NEU-004', dept: depts['Neurology Department'] },
-    { name: 'Dr. Marcus Vance', email: 'dr.marcus@hospital.com', spec: 'Orthopedics', lic: 'LIC-ORT-005', dept: depts['Orthopedics Center'] },
-    { name: 'Dr. Priya Sharma', email: 'dr.priya@hospital.com', spec: 'Pediatrics', lic: 'LIC-PED-006', dept: depts['Pediatrics Ward'] },
-    { name: 'Dr. James Wilson', email: 'dr.wilson@hospital.com', spec: 'Oncology', lic: 'LIC-ONC-007', dept: depts['Oncology Center'] },
-    { name: 'Dr. House Gregory', email: 'dr.house@hospital.com', spec: 'Internal Medicine', lic: 'LIC-GEN-008', dept: depts['General Medicine'] },
-    { name: 'Dr. Meredith Grey', email: 'dr.grey@hospital.com', spec: 'General Surgery', lic: 'LIC-SUR-009', dept: depts['Surgical Suite'] },
-    { name: 'Dr. Derek Shepherd', email: 'dr.shepherd@hospital.com', spec: 'Neurosurgery', lic: 'LIC-NEU-010', dept: depts['Neurology Department'] },
-    { name: 'Dr. Cristina Yang', email: 'dr.yang@hospital.com', spec: 'Cardiothoracic Surgery', lic: 'LIC-CAR-011', dept: depts['Cardiology Unit'] },
-    { name: 'Dr. Alex Karev', email: 'dr.karev@hospital.com', spec: 'Pediatric Surgery', lic: 'LIC-PED-012', dept: depts['Pediatrics Ward'] },
-    { name: 'Dr. Miranda Bailey', email: 'dr.bailey@hospital.com', spec: 'General Surgery', lic: 'LIC-SUR-013', dept: depts['Surgical Suite'] },
-    { name: 'Dr. Owen Hunt', email: 'dr.hunt@hospital.com', spec: 'Trauma Surgery', lic: 'LIC-EMG-014', dept: depts['Emergency & Trauma'] },
-    { name: 'Dr. Arizona Robbins', email: 'dr.robbins@hospital.com', spec: 'Pediatric Surgery', lic: 'LIC-PED-015', dept: depts['Pediatrics Ward'] },
+    { name: 'Dr. Ananya Iyer', email: 'doctor@hospital.com', spec: 'Critical Care & ICU', lic: 'LIC-IND-001', dept: depts['Intensive Care Unit (ICU)'] },
+    { name: 'Dr. Vikramaditya Rao', email: 'doctor2@hospital.com', spec: 'Emergency Medicine', lic: 'LIC-IND-002', dept: depts['Emergency & Trauma'] },
+    { name: 'Dr. Sunita Deshmukh', email: 'dr.sunita@hospital.com', spec: 'Cardiology', lic: 'LIC-IND-003', dept: depts['Cardiology Unit'] },
+    { name: 'Dr. Rohan Mehta', email: 'dr.rohan@hospital.com', spec: 'Neurology', lic: 'LIC-IND-004', dept: depts['Neurology Department'] },
+    { name: 'Dr. Kavita Reddy', email: 'dr.kavita@hospital.com', spec: 'Orthopedics', lic: 'LIC-IND-005', dept: depts['Orthopedics Center'] },
+    { name: 'Dr. Priya Sharma', email: 'dr.priya@hospital.com', spec: 'Pediatrics', lic: 'LIC-IND-006', dept: depts['Pediatrics Ward'] },
+    { name: 'Dr. Amitav Ghosh', email: 'dr.amitav@hospital.com', spec: 'Oncology', lic: 'LIC-IND-007', dept: depts['Oncology Center'] },
+    { name: 'Dr. Suresh Nair', email: 'dr.suresh@hospital.com', spec: 'Internal Medicine', lic: 'LIC-IND-008', dept: depts['General Medicine'] },
+    { name: 'Dr. Meenakshi Joshi', email: 'dr.meenakshi@hospital.com', spec: 'General Surgery', lic: 'LIC-IND-009', dept: depts['Surgical Suite'] },
+    { name: 'Dr. Arvind Swamy', email: 'dr.arvind@hospital.com', spec: 'Neurosurgery', lic: 'LIC-IND-010', dept: depts['Neurology Department'] },
+    { name: 'Dr. Priyanka Sengupta', email: 'dr.priyankas@hospital.com', spec: 'Cardiothoracic Surgery', lic: 'LIC-IND-011', dept: depts['Cardiology Unit'] },
+    { name: 'Dr. Devraj Mukherjee', email: 'dr.devraj@hospital.com', spec: 'Pediatric Surgery', lic: 'LIC-IND-012', dept: depts['Pediatrics Ward'] },
+    { name: 'Dr. Deepa Subramanian', email: 'dr.deepas@hospital.com', spec: 'General Surgery', lic: 'LIC-IND-013', dept: depts['Surgical Suite'] },
+    { name: 'Dr. Sameer Kapoor', email: 'dr.sameer@hospital.com', spec: 'Trauma Surgery', lic: 'LIC-IND-014', dept: depts['Emergency & Trauma'] },
+    { name: 'Dr. Aditi Kulkarni', email: 'dr.aditi@hospital.com', spec: 'Gynecology & Obstetrics', lic: 'LIC-IND-015', dept: depts['Gynecology & Obstetrics'] },
   ];
 
   const doctors: any[] = [];
@@ -189,16 +190,16 @@ async function main() {
     doctors.push(createdDoc);
   }
 
-  // Update Head Doctor for each Department
+  // Update Head Doctor for key Departments
   await prisma.department.update({ where: { id: depts['Intensive Care Unit (ICU)'].id }, data: { headDoctorId: doctors[0].id } });
   await prisma.department.update({ where: { id: depts['Emergency & Trauma'].id }, data: { headDoctorId: doctors[1].id } });
 
-  // 4. Create 15 Nurses
+  // 4. Create 15 Nurses with Indian Names
   const nurseNames = [
-    'Nurse Emily Watson', 'Nurse Clara Oswald', 'Nurse Amy Pond', 'Nurse Rory Williams',
-    'Nurse Martha Jones', 'Nurse Rose Tyler', 'Nurse Donna Noble', 'Nurse Sarah Jane',
-    'Nurse Jack Harkness', 'Nurse River Song', 'Nurse Bill Potts', 'Nurse Nardole',
-    'Nurse Yasmin Khan', 'Nurse Ryan Sinclair', 'Nurse Graham O'
+    'Nurse Sunita Devi', 'Nurse Deepa Sharma', 'Nurse Anjali Verma', 'Nurse Lakshmi Prasanna',
+    'Nurse Pooja Kulkarni', 'Nurse Rekha Patel', 'Nurse Meera Nair', 'Nurse Priyanka Rao',
+    'Nurse Swati Deshmukh', 'Nurse Radhika Iyer', 'Nurse Kavita Joshi', 'Nurse Neha Kapoor',
+    'Nurse Aarti Shah', 'Nurse Bhavna Trivedi', 'Nurse Divya Pillai'
   ];
 
   const deptList = Object.values(depts) as any[];
@@ -235,22 +236,36 @@ async function main() {
     nurses.push(createdNurse);
   }
 
-  // 5. Create 30 Synthetic Patients
+  // 5. Create 30 Synthetic Patients with Authentic Indian Names & Pre-assigned Doctor/Nurse
+  const indianPatientNames = [
+    'Rahul Verma', 'Aarav Patel', 'Meera Joshi', 'Rajesh Kumar', 'Priya Sharma',
+    'Vikram Malhotra', 'Sneha Gupta', 'Arjun Reddy', 'Kavya Swaminathan', 'Ramesh Patel',
+    'Sunita Agarwal', 'Amit Shah', 'Neha Kapoor', 'Sanjay Singhania', 'Deepa Pillai',
+    'Manish Tiwari', 'Ankita Banerjee', 'Alok Mishra', 'Pooja Deshmukh', 'Tarun Saxena',
+    'Ritu Chatterjee', 'Nikhil Bhatia', 'Shweta Kulkarni', 'Gaurav Joshi', 'Bhavna Chauhan',
+    'Karthik Sundaram', 'Divya Nambiar', 'Siddharth Roy', 'Ishita Sengupta', 'Varun Naidu'
+  ];
+
   const patients: any[] = [];
-  for (let i = 1; i <= 30; i++) {
+  for (let i = 0; i < 30; i++) {
+    const doc = doctors[i % doctors.length];
+    const nurse = nurses[i % nurses.length];
+
     const p = await prisma.patient.create({
       data: {
-        patientNumber: `PAT-${1000 + i}`,
-        name: i === 1 ? 'Patient John Doe' : `Patient Demo ${i}`,
+        patientNumber: `PAT-${1000 + i + 1}`,
+        name: i === 0 ? 'Patient Rahul Verma' : `Patient ${indianPatientNames[i]}`,
         dateOfBirth: `198${i % 9}-0${(i % 9) + 1}-15`,
-        gender: i % 2 === 0 ? 'Female' : 'Male',
-        phone: `+1-555-01${i < 10 ? '0' + i : i}`,
-        address: `${100 + i} Medical Blvd, Cityville`,
-        emergencyContact: `+1-555-99${i < 10 ? '0' + i : i}`,
+        gender: i % 2 === 0 ? 'Male' : 'Female',
+        phone: `+91-98765-${10000 + i}`,
+        address: `${100 + i} MG Road, Indiranagar`,
+        emergencyContact: `+91-98765-${90000 + i}`,
         bloodGroup: ['A+', 'B+', 'O+', 'AB+', 'O-'][i % 5],
-        allergies: i % 3 === 0 ? 'Penicillin' : 'None',
-        medicalHistory: i % 2 === 0 ? 'Hypertension, Asthma' : 'None',
-        priority: i === 1 ? TransactionPriority.EMERGENCY : i % 5 === 0 ? TransactionPriority.CRITICAL : TransactionPriority.ROUTINE,
+        allergies: i % 3 === 0 ? 'Penicillin, Dust' : 'None',
+        medicalHistory: i % 2 === 0 ? 'Type 2 Diabetes, Hypertension' : 'Asthma, Mild Gastritis',
+        priority: i === 0 ? TransactionPriority.EMERGENCY : i % 5 === 0 ? TransactionPriority.CRITICAL : TransactionPriority.ROUTINE,
+        assignedDoctorId: doc.id,
+        assignedNurseId: nurse.id,
       },
     });
     patients.push(p);
@@ -316,7 +331,7 @@ async function main() {
     beds.push(b);
   }
 
-  // 7. Create Equipment with Machine Health Parameters & Calibration Inspection Dates
+  // 7. Create Equipment
   const now = new Date();
   const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const overdueDate = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
@@ -324,23 +339,23 @@ async function main() {
   const equipmentData = [
     {
       name: 'ICU Ventilator Alpha', type: 'VENTILATOR', serialNumber: 'VENT-001', dept: icuDept, status: EquipmentStatus.IN_USE, currentPatientId: patients[0].id,
-      healthScore: 98, calibrationStatus: 'CALIBRATED', batteryLevel: 94, sensorAccuracy: '99.8%', lastSurveyDate: now, nextSurveyDate: nextWeek, surveyedByDoctorName: 'Marcus Vance (ICU Admin)', surveyNotes: 'Turbine pressure flow calibrated and patient sensor accurate.'
+      healthScore: 98, calibrationStatus: 'CALIBRATED', batteryLevel: 94, sensorAccuracy: '99.8%', lastSurveyDate: now, nextSurveyDate: nextWeek, surveyedByDoctorName: 'Dr. Ananya Iyer (ICU Admin)', surveyNotes: 'Turbine pressure flow calibrated and patient sensor accurate.'
     },
     {
       name: 'ICU Ventilator Beta', type: 'VENTILATOR', serialNumber: 'VENT-002', dept: icuDept, status: EquipmentStatus.RESERVED,
-      healthScore: 82, calibrationStatus: 'DUE_SOON', batteryLevel: 78, sensorAccuracy: '97.2%', lastSurveyDate: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000), nextSurveyDate: now, surveyedByDoctorName: 'Marcus Vance (ICU Admin)', surveyNotes: 'Oxygen sensor recalibration due for upcoming ICU allocation.'
+      healthScore: 82, calibrationStatus: 'DUE_SOON', batteryLevel: 78, sensorAccuracy: '97.2%', lastSurveyDate: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000), nextSurveyDate: now, surveyedByDoctorName: 'Dr. Ananya Iyer (ICU Admin)', surveyNotes: 'Oxygen sensor recalibration due for upcoming ICU allocation.'
     },
     {
       name: 'Cardiac Defibrillator X1', type: 'DEFIBRILLATOR', serialNumber: 'DEFIB-001', dept: depts['Cardiology Unit'], status: EquipmentStatus.AVAILABLE,
-      healthScore: 65, calibrationStatus: 'OVERDUE', batteryLevel: 45, sensorAccuracy: '94.0%', lastSurveyDate: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000), nextSurveyDate: overdueDate, surveyedByDoctorName: 'Elena Rostova (Cardiology Admin)', surveyNotes: 'Battery discharge test needed immediately.'
+      healthScore: 65, calibrationStatus: 'OVERDUE', batteryLevel: 45, sensorAccuracy: '94.0%', lastSurveyDate: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000), nextSurveyDate: overdueDate, surveyedByDoctorName: 'Dr. Sunita Deshmukh (Cardiology Admin)', surveyNotes: 'Battery discharge test needed immediately.'
     },
     {
       name: 'Portable Ultrasound Scan', type: 'ULTRASOUND', serialNumber: 'ULT-001', dept: depts['Radiology & Imaging'], status: EquipmentStatus.AVAILABLE,
-      healthScore: 100, calibrationStatus: 'CALIBRATED', batteryLevel: 100, sensorAccuracy: '99.9%', lastSurveyDate: now, nextSurveyDate: nextWeek, surveyedByDoctorName: 'Arthur Dent (Radiology Admin)', surveyNotes: 'Doppler transducer frequency verified.'
+      healthScore: 100, calibrationStatus: 'CALIBRATED', batteryLevel: 100, sensorAccuracy: '99.9%', lastSurveyDate: now, nextSurveyDate: nextWeek, surveyedByDoctorName: 'Dr. Arvind Swamy (Radiology Admin)', surveyNotes: 'Doppler transducer frequency verified.'
     },
     {
       name: 'Infusion Pump Tower A', type: 'INFUSION_PUMP', serialNumber: 'INF-001', dept: icuDept, status: EquipmentStatus.IN_USE,
-      healthScore: 90, calibrationStatus: 'CALIBRATED', batteryLevel: 88, sensorAccuracy: '98.5%', lastSurveyDate: now, nextSurveyDate: nextWeek, surveyedByDoctorName: 'Marcus Vance (ICU Admin)', surveyNotes: 'Micro-drip rate verified for ICU automated medication.'
+      healthScore: 90, calibrationStatus: 'CALIBRATED', batteryLevel: 88, sensorAccuracy: '98.5%', lastSurveyDate: now, nextSurveyDate: nextWeek, surveyedByDoctorName: 'Dr. Ananya Iyer (ICU Admin)', surveyNotes: 'Micro-drip rate verified for ICU automated medication.'
     },
   ];
 
@@ -398,7 +413,7 @@ async function main() {
     });
   }
 
-  // 8.5. Create 20 Appointments, 10 Admissions, 15 Prescriptions, 15 Vitals & Care Tasks
+  // 8.5. Create 20 Appointments, 10 Admissions, 15 Prescriptions, Vitals & Care Tasks
   for (let i = 0; i < 20; i++) {
     const p = patients[i % patients.length];
     const d = doctors[i % doctors.length];
@@ -411,7 +426,7 @@ async function main() {
         departmentId: dept.id,
         dateTime: new Date(Date.now() + i * 3600000),
         status: i % 3 === 0 ? 'CHECKED_IN' : i % 2 === 0 ? 'SCHEDULED' : 'COMPLETED',
-        reason: ['Chest Pain Evaluation', 'Routine Hypertension Check', 'Post-Op Surgical Review', 'Pediatric Fever Evaluation', 'Neurological Headache Consultation'][i % 5],
+        reason: ['Acute Chest Pain Evaluation', 'Routine Diabetes Checkup', 'Post-Op Surgical Review', 'Pediatric Fever Evaluation', 'Neurological Migraine Review'][i % 5],
       },
     });
   }
@@ -439,15 +454,15 @@ async function main() {
     const p = patients[i];
     const d = doctors[i % doctors.length];
 
-    const c = await prisma.consultation.create({
+    await prisma.consultation.create({
       data: {
         patientId: p.id,
         doctorId: d.id,
-        symptoms: ['Chest pain', 'Headache', 'Joint stiffness', 'Cough', 'Fever'][i % 5],
-        observations: 'Vital signs stable. Heart sounds S1 S2 clear.',
-        diagnosis: ['Hypertension', 'Acute Bronchitis', 'Osteoarthritis', 'Migraine', 'Gastritis'][i % 5],
-        treatmentPlan: 'Medication prescribed. Follow up in 1 week.',
-        notes: 'Patient advised rest and hydration.',
+        symptoms: ['Severe chest discomfort, shortness of breath', 'High fever, persistent cough', 'Joint swelling and stiffness', 'Frequent headaches', 'Acute abdominal pain'][i % 5],
+        observations: 'Vital signs stable. Heart sounds S1 S2 clear. Lungs clear to auscultation.',
+        diagnosis: ['Hypertension & ACS', 'Acute Bronchitis', 'Osteoarthritis', 'Migraine with Aura', 'Acute Gastritis'][i % 5],
+        treatmentPlan: 'Medication prescribed. Advised 1 week rest.',
+        notes: 'Follow up in OPD after 7 days with repeat lab tests.',
       },
     });
 
@@ -455,18 +470,18 @@ async function main() {
       data: {
         patientId: p.id,
         doctorId: d.id,
-        medicine: ['Amoxicillin 500mg', 'Atorvastatin 20mg', 'Metformin 500mg', 'Ibuprofen 400mg', 'Lisinopril 10mg'][i % 5],
+        medicine: ['Amoxicillin 500mg', 'Atorvastatin 20mg & Aspirin 75mg', 'Metformin 500mg', 'Ibuprofen 400mg', 'Telmisartan 40mg'][i % 5],
         dosage: '1 Tablet',
         frequency: ['TID (3x daily)', 'QD (1x daily)', 'BID (2x daily)', 'PRN (As needed)'][i % 4],
         duration: '7 Days',
-        instructions: 'Take after meals with plenty of water.',
+        instructions: 'Take after meals with warm water.',
       },
     });
 
     await prisma.vital.create({
       data: {
         patientId: p.id,
-        recordedBy: 'Nurse Emily Watson',
+        recordedBy: nurses[i % nurses.length].user?.name || 'Nurse Sunita Devi',
         temperature: 98.6 + (i % 3) * 0.5,
         heartRate: 72 + (i % 5) * 4,
         bloodPressure: `${120 + i}/${80 + (i % 4)}`,
@@ -486,20 +501,20 @@ async function main() {
     });
   }
 
-  // 9. Create Rich Initial Transactions, Conflicts & Audit Logs
+  // 9. Initial Transactions, Conflicts & Audit Logs
   const txSpecs = [
-    { num: 'TX-1001', type: TransactionType.MULTI_RESOURCE_ADMISSION, prio: TransactionPriority.EMERGENCY, stat: TransactionStatus.COMMITTED, resType: ResourceType.BED, resId: beds[0].id, by: 'Dr. Sarah Jenkins', patient: patients[0] },
-    { num: 'TX-1002', type: TransactionType.BED_ALLOCATION, prio: TransactionPriority.CRITICAL, stat: TransactionStatus.COMMITTED, resType: ResourceType.BED, resId: beds[1].id, by: 'Dr. Robert Chen', patient: patients[1] },
-    { num: 'TX-1003', type: TransactionType.EQUIPMENT_RESERVATION, prio: TransactionPriority.EMERGENCY, stat: TransactionStatus.COMMITTED, resType: ResourceType.EQUIPMENT, resId: equipmentData[0].name, by: 'Dr. Sarah Jenkins', patient: patients[2] },
-    { num: 'TX-1004', type: TransactionType.DOCTOR_ASSIGNMENT, prio: TransactionPriority.URGENT, stat: TransactionStatus.COMMITTED, resType: ResourceType.DOCTOR, resId: doctors[2].id, by: 'Dr. Arthur Pendelton', patient: patients[3] },
-    { num: 'TX-1005', type: TransactionType.OT_BOOKING, prio: TransactionPriority.CRITICAL, stat: TransactionStatus.COMMITTED, resType: ResourceType.OT, resId: otData[0].name, by: 'Dr. Meredith Grey', patient: patients[4] },
-    { num: 'TX-1006', type: TransactionType.BED_ALLOCATION, prio: TransactionPriority.ROUTINE, stat: TransactionStatus.ROLLED_BACK, resType: ResourceType.BED, resId: beds[2].id, by: 'Nurse Emily Watson', patient: patients[5] },
-    { num: 'TX-1007', type: TransactionType.MULTI_RESOURCE_ADMISSION, prio: TransactionPriority.EMERGENCY, stat: TransactionStatus.COMMITTED, resType: ResourceType.BED, resId: beds[3].id, by: 'Dr. Robert Chen', patient: patients[6] },
-    { num: 'TX-1008', type: TransactionType.PATIENT_TRANSFER, prio: TransactionPriority.URGENT, stat: TransactionStatus.COMMITTED, resType: ResourceType.BED, resId: beds[4].id, by: 'Reception Manager Michael', patient: patients[7] },
-    { num: 'TX-1009', type: TransactionType.BED_ALLOCATION, prio: TransactionPriority.ROUTINE, stat: TransactionStatus.ESCALATED, resType: ResourceType.BED, resId: beds[0].id, by: 'Resource Mgr David', patient: patients[8] },
-    { num: 'TX-1010', type: TransactionType.EQUIPMENT_RESERVATION, prio: TransactionPriority.CRITICAL, stat: TransactionStatus.COMMITTED, resType: ResourceType.EQUIPMENT, resId: equipmentData[1].name, by: 'Dr. Sarah Jenkins', patient: patients[9] },
-    { num: 'TX-1011', type: TransactionType.OT_BOOKING, prio: TransactionPriority.EMERGENCY, stat: TransactionStatus.COMMITTED, resType: ResourceType.OT, resId: otData[1].name, by: 'Dr. Owen Hunt', patient: patients[10] },
-    { num: 'TX-1012', type: TransactionType.BED_ALLOCATION, prio: TransactionPriority.URGENT, stat: TransactionStatus.FAILED, resType: ResourceType.BED, resId: beds[5].id, by: 'Dr. House Gregory', patient: patients[11] },
+    { num: 'TX-1001', type: TransactionType.MULTI_RESOURCE_ADMISSION, prio: TransactionPriority.EMERGENCY, stat: TransactionStatus.COMMITTED, resType: ResourceType.BED, resId: beds[0].id, by: 'Dr. Ananya Iyer', patient: patients[0] },
+    { num: 'TX-1002', type: TransactionType.BED_ALLOCATION, prio: TransactionPriority.CRITICAL, stat: TransactionStatus.COMMITTED, resType: ResourceType.BED, resId: beds[1].id, by: 'Dr. Vikramaditya Rao', patient: patients[1] },
+    { num: 'TX-1003', type: TransactionType.EQUIPMENT_RESERVATION, prio: TransactionPriority.EMERGENCY, stat: TransactionStatus.COMMITTED, resType: ResourceType.EQUIPMENT, resId: equipmentData[0].name, by: 'Dr. Ananya Iyer', patient: patients[2] },
+    { num: 'TX-1004', type: TransactionType.DOCTOR_ASSIGNMENT, prio: TransactionPriority.URGENT, stat: TransactionStatus.COMMITTED, resType: ResourceType.DOCTOR, resId: doctors[2].id, by: 'Dr. Sunita Deshmukh', patient: patients[3] },
+    { num: 'TX-1005', type: TransactionType.OT_BOOKING, prio: TransactionPriority.CRITICAL, stat: TransactionStatus.COMMITTED, resType: ResourceType.OT, resId: otData[0].name, by: 'Dr. Meenakshi Joshi', patient: patients[4] },
+    { num: 'TX-1006', type: TransactionType.BED_ALLOCATION, prio: TransactionPriority.ROUTINE, stat: TransactionStatus.ROLLED_BACK, resType: ResourceType.BED, resId: beds[2].id, by: 'Nurse Sunita Devi', patient: patients[5] },
+    { num: 'TX-1007', type: TransactionType.MULTI_RESOURCE_ADMISSION, prio: TransactionPriority.EMERGENCY, stat: TransactionStatus.COMMITTED, resType: ResourceType.BED, resId: beds[3].id, by: 'Dr. Vikramaditya Rao', patient: patients[6] },
+    { num: 'TX-1008', type: TransactionType.PATIENT_TRANSFER, prio: TransactionPriority.URGENT, stat: TransactionStatus.COMMITTED, resType: ResourceType.BED, resId: beds[4].id, by: 'Reception Manager Ramesh', patient: patients[7] },
+    { num: 'TX-1009', type: TransactionType.BED_ALLOCATION, prio: TransactionPriority.ROUTINE, stat: TransactionStatus.ESCALATED, resType: ResourceType.BED, resId: beds[0].id, by: 'Resource Mgr Suresh', patient: patients[8] },
+    { num: 'TX-1010', type: TransactionType.EQUIPMENT_RESERVATION, prio: TransactionPriority.CRITICAL, stat: TransactionStatus.COMMITTED, resType: ResourceType.EQUIPMENT, resId: equipmentData[1].name, by: 'Dr. Ananya Iyer', patient: patients[9] },
+    { num: 'TX-1011', type: TransactionType.OT_BOOKING, prio: TransactionPriority.EMERGENCY, stat: TransactionStatus.COMMITTED, resType: ResourceType.OT, resId: otData[1].name, by: 'Dr. Sameer Kapoor', patient: patients[10] },
+    { num: 'TX-1012', type: TransactionType.BED_ALLOCATION, prio: TransactionPriority.URGENT, stat: TransactionStatus.FAILED, resType: ResourceType.BED, resId: beds[5].id, by: 'Dr. Suresh Nair', patient: patients[11] },
   ];
 
   const createdTxs: any[] = [];
@@ -528,7 +543,7 @@ async function main() {
     });
   }
 
-  // Seed 4 Realistic Preemption Conflict Resolution Records
+  // Preemption Conflict Resolution Records
   await prisma.conflict.createMany({
     data: [
       {
@@ -566,18 +581,14 @@ async function main() {
     ],
   });
 
-  // Seed 15 Human Readable Audit Logs
+  // Human Readable Audit Logs
   const auditLogsData = [
-    { action: 'TRANSACTION_COMMITTED', entityType: 'Transaction', entityId: 'TX-1001', oldState: 'RESERVED', newState: 'COMMITTED', reason: 'Dr. Sarah Jenkins successfully committed ICU Bed #01 for Emergency Patient John Doe' },
+    { action: 'TRANSACTION_COMMITTED', entityType: 'Transaction', entityId: 'TX-1001', oldState: 'RESERVED', newState: 'COMMITTED', reason: 'Dr. Ananya Iyer successfully committed ICU Bed #01 for Emergency Patient Rahul Verma' },
     { action: 'RESOURCE_LOCK_ACQUIRED', entityType: 'Bed', entityId: beds[0].id, oldState: 'AVAILABLE', newState: 'RESERVED', reason: 'Mutex lock acquired on ICU Bed #01 for incoming trauma admission' },
     { action: 'PRIORITY_PREEMPTION', entityType: 'Conflict', entityId: 'CONF-001', oldState: 'OPEN', newState: 'RESOLVED', reason: 'Engine arbitrated conflict: EMERGENCY request displaced ROUTINE request for Bed ICU-BED-01' },
-    { action: 'SAGA_COMPENSATION_TRIGGERED', entityType: 'Transaction', entityId: 'TX-1006', oldState: 'PROCESSING', newState: 'COMPENSATING', reason: 'Ventilator timeout triggered Saga compensation step to release reserved Bed' },
-    { action: 'SAGA_ROLLBACK_COMPLETED', entityType: 'Transaction', entityId: 'TX-1006', oldState: 'COMPENSATING', newState: 'ROLLED_BACK', reason: 'All reserved resources cleanly released; transaction TX-1006 marked ROLLED_BACK' },
-    { action: 'OUT_OF_ORDER_EVENT_FLAGGED', entityType: 'Event', entityId: 'EVT-1012-3', oldState: 'RECEIVED', newState: 'OUT_OF_ORDER', reason: 'Sequence #3 arrived before Sequence #2; event flagged OUT_OF_ORDER to prevent state corruption' },
-    { action: 'STAFF_CREATED', entityType: 'User', entityId: 'USER-DEPT-ADMIN', oldState: 'NULL', newState: 'ACTIVE', reason: 'Super Admin assigned Alex Admin as Department Admin for Cardiology Unit' },
-    { action: 'EQUIPMENT_ALLOCATED', entityType: 'Equipment', entityId: 'VENT-001', oldState: 'AVAILABLE', newState: 'IN_USE', reason: 'ICU Ventilator Alpha allocated to Patient John Doe' },
-    { action: 'OT_SCHEDULED', entityType: 'OperationTheatre', entityId: 'OT-1', oldState: 'AVAILABLE', newState: 'SCHEDULED', reason: 'Dr. Meredith Grey scheduled Emergency Neurosurgery in OT-1' },
-    { action: 'PATIENT_REGISTERED', entityType: 'Patient', entityId: 'PAT-1001', oldState: 'NULL', newState: 'REGISTERED', reason: 'Patient Jane Smith completed self-registration via Patient Portal' },
+    { action: 'STAFF_CREATED', entityType: 'User', entityId: 'USER-DEPT-ADMIN', oldState: 'NULL', newState: 'ACTIVE', reason: 'Super Admin assigned Dr. Sunita Deshmukh as Department Admin for Cardiology Unit' },
+    { action: 'EQUIPMENT_ALLOCATED', entityType: 'Equipment', entityId: 'VENT-001', oldState: 'AVAILABLE', newState: 'IN_USE', reason: 'ICU Ventilator Alpha allocated to Patient Rahul Verma' },
+    { action: 'PATIENT_REGISTERED', entityType: 'Patient', entityId: 'PAT-1001', oldState: 'NULL', newState: 'REGISTERED', reason: 'Patient Rahul Verma completed self-registration and was allotted Dr. Ananya Iyer & Nurse Sunita Devi' },
   ];
 
   for (const al of auditLogsData) {
@@ -594,24 +605,14 @@ async function main() {
     });
   }
 
-  console.log('✅ H-02 Database Seeding Completed Successfully!');
+  console.log('✅ H-02 Database Seeding with Indian Dataset Completed Successfully!');
   console.log('----------------------------------------------------');
   console.log('🔑 Demo Login Credentials (All passwords: password123):');
-  console.log('   SUPER ADMIN: superadmin@hospital.com');
-  console.log('   DEPT ADMINS (10 Enlisted Departments):');
-  console.log('     - Emergency:    admin.emergency@hospital.com');
-  console.log('     - Cardiology:   admin.cardiology@hospital.com');
-  console.log('     - Neurology:    admin.neurology@hospital.com');
-  console.log('     - Orthopedics:  admin.orthopedics@hospital.com');
-  console.log('     - Pediatrics:   admin.pediatrics@hospital.com');
-  console.log('     - Oncology:     admin.oncology@hospital.com');
-  console.log('     - Gen Medicine: admin.general@hospital.com');
-  console.log('     - Surgery:      admin.surgery@hospital.com');
-  console.log('     - ICU Admin:    deptadmin@hospital.com');
-  console.log('     - Radiology:    admin.radiology@hospital.com');
-  console.log('   DOCTOR:           doctor@hospital.com');
-  console.log('   NURSE:            nurse@hospital.com');
-  console.log('   PATIENT:          patient@hospital.com');
+  console.log('   SUPER ADMIN: superadmin@hospital.com (Dr. Rajesh Sharma)');
+  console.log('   DOCTOR:      doctor@hospital.com (Dr. Ananya Iyer)');
+  console.log('   NURSE:       nurse@hospital.com (Nurse Sunita Devi)');
+  console.log('   PATIENT:     patient@hospital.com (Patient Rahul Verma)');
+  console.log('   RECEPTION:   reception@hospital.com (Reception Manager Ramesh)');
   console.log('----------------------------------------------------');
 }
 

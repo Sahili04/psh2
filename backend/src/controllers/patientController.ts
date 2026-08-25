@@ -4,14 +4,66 @@ import { TransactionEngine } from '../engine/transactionEngine.js';
 import { ResourceType, TransactionType, BedStatus, AdmissionStatus } from '../types/domain.js';
 import { broadcastEvent } from '../websocket/broadcaster.js';
 
+export async function autoAllocateDoctorAndNurse(departmentId?: string | null) {
+  let docWhere: any = { availabilityStatus: 'AVAILABLE' };
+  if (departmentId) docWhere.departmentId = departmentId;
+
+  let availableDocs = await prisma.doctor.findMany({
+    where: docWhere,
+    include: { assignedPatients: true, user: true, department: true },
+  });
+
+  if (availableDocs.length === 0 && departmentId) {
+    availableDocs = await prisma.doctor.findMany({
+      where: { availabilityStatus: 'AVAILABLE' },
+      include: { assignedPatients: true, user: true, department: true },
+    });
+  }
+
+  if (availableDocs.length === 0) {
+    availableDocs = await prisma.doctor.findMany({
+      include: { assignedPatients: true, user: true, department: true },
+    });
+  }
+
+  const selectedDoc = availableDocs.sort((a, b) => a.assignedPatients.length - b.assignedPatients.length)[0] || null;
+
+  let nurseWhere: any = {};
+  if (departmentId) nurseWhere.departmentId = departmentId;
+
+  let availableNurses = await prisma.nurse.findMany({
+    where: nurseWhere,
+    include: { assignedPatients: true, user: true, department: true },
+  });
+
+  if (availableNurses.length === 0) {
+    availableNurses = await prisma.nurse.findMany({
+      include: { assignedPatients: true, user: true, department: true },
+    });
+  }
+
+  const selectedNurse = availableNurses.sort((a, b) => a.assignedPatients.length - b.assignedPatients.length)[0] || null;
+
+  return {
+    doctorId: selectedDoc?.id || null,
+    nurseId: selectedNurse?.id || null,
+    doctor: selectedDoc,
+    nurse: selectedNurse,
+  };
+}
+
 export async function getPatientsHandler(request: FastifyRequest, reply: FastifyReply) {
   const patients = await prisma.patient.findMany({
     include: {
+      assignedDoctor: { include: { user: true, department: true } },
+      assignedNurse: { include: { user: true, department: true } },
       admissions: { include: { bed: true, doctor: { include: { user: true } } } },
       appointments: { include: { doctor: { include: { user: true } } } },
       prescriptions: true,
       reports: true,
       vitals: { orderBy: { createdAt: 'desc' }, take: 5 },
+      careTasks: { include: { nurse: { include: { user: true } } } },
+      emergencyAlerts: { orderBy: { createdAt: 'desc' }, take: 5 },
     },
     orderBy: { patientNumber: 'desc' },
   });
@@ -22,6 +74,8 @@ export async function createPatientHandler(request: FastifyRequest, reply: Fasti
   const data = request.body as any;
   const count = await prisma.patient.count();
   const patientNumber = `PAT-${101 + count}`;
+
+  const { doctorId, nurseId, doctor, nurse } = await autoAllocateDoctorAndNurse(data.departmentId);
 
   const patient = await prisma.patient.create({
     data: {
@@ -37,8 +91,22 @@ export async function createPatientHandler(request: FastifyRequest, reply: Fasti
       medicalHistory: data.medicalHistory || 'None',
       priority: data.priority || 'ROUTINE',
       status: 'ACTIVE',
+      assignedDoctorId: doctorId,
+      assignedNurseId: nurseId,
+    },
+    include: {
+      assignedDoctor: { include: { user: true, department: true } },
+      assignedNurse: { include: { user: true, department: true } },
     },
   });
+
+  broadcastEvent('patient:allocated', {
+    patient,
+    doctor,
+    nurse,
+    message: `Patient ${patient.name} registered and allotted Dr. ${doctor?.user?.name || 'Duty Doctor'} & Nurse ${nurse?.user?.name || 'Duty Nurse'}.`,
+  });
+
   return reply.status(201).send(patient);
 }
 
@@ -47,6 +115,8 @@ export async function getPatientProfileHandler(request: FastifyRequest, reply: F
   const patient = await prisma.patient.findUnique({
     where: { id },
     include: {
+      assignedDoctor: { include: { user: true, department: true } },
+      assignedNurse: { include: { user: true, department: true } },
       admissions: { include: { bed: true, doctor: { include: { user: true } }, department: true } },
       appointments: { include: { doctor: { include: { user: true } }, department: true } },
       consultations: { include: { doctor: { include: { user: true } } } },
@@ -55,12 +125,121 @@ export async function getPatientProfileHandler(request: FastifyRequest, reply: F
       vitals: { orderBy: { createdAt: 'desc' } },
       careTasks: { include: { nurse: { include: { user: true } } } },
       transactions: { include: { events: true } },
+      emergencyAlerts: { orderBy: { createdAt: 'desc' } },
     },
   });
 
   if (!patient) return reply.status(404).send({ error: 'Patient not found' });
   return reply.send(patient);
 }
+
+export async function triggerEmergencySosHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as any; // patientId
+  const { nurseId, reason } = request.body as any;
+
+  const patient = await prisma.patient.findUnique({
+    where: { id },
+    include: {
+      assignedDoctor: { include: { user: true, department: true } },
+      assignedNurse: { include: { user: true, department: true } },
+      vitals: { orderBy: { createdAt: 'desc' }, take: 5 },
+      prescriptions: { include: { doctor: { include: { user: true } } } },
+      consultations: { include: { doctor: { include: { user: true } } } },
+      careTasks: true,
+      reports: true,
+    },
+  });
+
+  if (!patient) return reply.status(404).send({ error: 'Patient not found' });
+
+  // Get effective doctor and nurse
+  let targetDoctorId = patient.assignedDoctorId;
+  if (!targetDoctorId) {
+    const doc = await prisma.doctor.findFirst({ where: { availabilityStatus: 'AVAILABLE' } });
+    targetDoctorId = doc?.id || null;
+  }
+
+  let triggeringNurseId = nurseId || patient.assignedNurseId;
+  if (!triggeringNurseId) {
+    const n = await prisma.nurse.findFirst();
+    triggeringNurseId = n?.id || '';
+  }
+
+  const alertReason = reason || `🚨 CRITICAL EMERGENCY SOS: Patient ${patient.name} needs immediate doctor attention!`;
+
+  const alert = await prisma.emergencyAlert.create({
+    data: {
+      patientId: patient.id,
+      nurseId: triggeringNurseId,
+      doctorId: targetDoctorId || '',
+      reason: alertReason,
+      status: 'ACTIVE',
+    },
+    include: {
+      patient: true,
+      nurse: { include: { user: true } },
+      doctor: { include: { user: true } },
+    },
+  });
+
+  const fullSosPayload = {
+    alertId: alert.id,
+    patientId: patient.id,
+    patientName: patient.name,
+    patientNumber: patient.patientNumber,
+    dateOfBirth: patient.dateOfBirth,
+    gender: patient.gender,
+    bloodGroup: patient.bloodGroup,
+    allergies: patient.allergies,
+    medicalHistory: patient.medicalHistory,
+    emergencyContact: patient.emergencyContact,
+    priority: 'EMERGENCY',
+    reason: alertReason,
+    nurseName: alert.nurse?.user?.name || 'Duty Nurse',
+    doctorId: targetDoctorId,
+    doctorName: alert.doctor?.user?.name || 'Attending Doctor',
+    vitals: patient.vitals,
+    prescriptions: patient.prescriptions,
+    consultations: patient.consultations,
+    careTasks: patient.careTasks,
+    reports: patient.reports,
+    createdAt: alert.createdAt,
+  };
+
+  broadcastEvent('emergency:sos', fullSosPayload);
+
+  return reply.status(201).send({
+    message: `🚨 Emergency SOS dispatched to Dr. ${fullSosPayload.doctorName} STAT!`,
+    alert,
+    payload: fullSosPayload,
+  });
+}
+
+export async function acknowledgeEmergencySosHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as any; // alertId
+  const alert = await prisma.emergencyAlert.update({
+    where: { id },
+    data: { status: 'ACKNOWLEDGED' },
+    include: { patient: true, doctor: { include: { user: true } }, nurse: { include: { user: true } } },
+  });
+
+  broadcastEvent('emergency:acknowledged', { alertId: alert.id, status: 'ACKNOWLEDGED', patientName: alert.patient.name });
+  return reply.send(alert);
+}
+
+export async function getEmergencyAlertsHandler(request: FastifyRequest, reply: FastifyReply) {
+  const alerts = await prisma.emergencyAlert.findMany({
+    include: {
+      patient: true,
+      doctor: { include: { user: true } },
+      nurse: { include: { user: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+  });
+  return reply.send(alerts);
+}
+
 
 export async function admitPatientHandler(request: FastifyRequest, reply: FastifyReply) {
   const { patientId, doctorId, departmentId, bedId, priority, reason, userId, transactionNumber } = request.body as any;

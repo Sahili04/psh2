@@ -3,6 +3,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/prisma.js';
 import { JWT_SECRET } from '../config/env.js';
+import { autoAllocateDoctorAndNurse } from './patientController.js';
+import { broadcastEvent } from '../websocket/broadcaster.js';
+
 
 export async function loginHandler(request: FastifyRequest, reply: FastifyReply) {
   const { email, password } = request.body as any;
@@ -84,18 +87,34 @@ export async function registerPatientHandler(request: FastifyRequest, reply: Fas
     },
   });
 
+  const { doctorId, nurseId, doctor, nurse } = await autoAllocateDoctorAndNurse(null);
+
+
   const patient = await prisma.patient.create({
     data: {
       patientNumber,
       name,
       dateOfBirth: dateOfBirth || '1995-01-01',
       gender: gender || 'Male',
-      phone: phone || '+1-555-0100',
-      address: '100 Main St',
-      emergencyContact: '+1-555-9999',
+      phone: phone || '+91-98765-43210',
+      address: 'Central Avenue, MG Road',
+      emergencyContact: '+91-98765-00000',
       bloodGroup: bloodGroup || 'O+',
       priority: 'ROUTINE',
+      assignedDoctorId: doctorId,
+      assignedNurseId: nurseId,
     },
+    include: {
+      assignedDoctor: { include: { user: true, department: true } },
+      assignedNurse: { include: { user: true, department: true } },
+    },
+  });
+
+  broadcastEvent('patient:allocated', {
+    patient,
+    doctor,
+    nurse,
+    message: `New Patient ${patient.name} self-registered and was allotted Dr. ${doctor?.user?.name || 'Duty Doctor'} & Nurse ${nurse?.user?.name || 'Duty Nurse'}.`,
   });
 
   const token = jwt.sign(
