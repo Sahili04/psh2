@@ -182,6 +182,15 @@ export async function triggerEmergencySosHandler(request: FastifyRequest, reply:
     },
   });
 
+  const ambulanceStandby = {
+    vehicleNumber: 'AMB-ALS-01',
+    type: 'Advanced Cardiac Life Support (ALS)',
+    status: 'STANDBY_DISPATCHED',
+    driverName: 'Rajesh Kumar',
+    driverPhone: '+91-98765-11223',
+    location: 'Emergency Bay #1 — Standing By STAT',
+  };
+
   const fullSosPayload = {
     alertId: alert.id,
     patientId: patient.id,
@@ -198,6 +207,7 @@ export async function triggerEmergencySosHandler(request: FastifyRequest, reply:
     nurseName: alert.nurse?.user?.name || 'Duty Nurse',
     doctorId: targetDoctorId,
     doctorName: alert.doctor?.user?.name || 'Attending Doctor',
+    ambulance: ambulanceStandby,
     vitals: patient.vitals,
     prescriptions: patient.prescriptions,
     consultations: patient.consultations,
@@ -209,11 +219,12 @@ export async function triggerEmergencySosHandler(request: FastifyRequest, reply:
   broadcastEvent('emergency:sos', fullSosPayload);
 
   return reply.status(201).send({
-    message: `🚨 Emergency SOS dispatched to Dr. ${fullSosPayload.doctorName} STAT!`,
+    message: `🚨 Emergency SOS dispatched to Dr. ${fullSosPayload.doctorName} STAT! Ambulance ${ambulanceStandby.vehicleNumber} assigned for Standby.`,
     alert,
     payload: fullSosPayload,
   });
 }
+
 
 export async function acknowledgeEmergencySosHandler(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.params as any; // alertId

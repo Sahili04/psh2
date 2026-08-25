@@ -2,6 +2,12 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../config/prisma.js';
 import { TransactionEngine } from '../engine/transactionEngine.js';
 import { broadcastEvent } from '../websocket/broadcaster.js';
+import {
+  TransactionType, TransactionPriority, TransactionStatus,
+  ResourceType, EventType, EventStatus, BedStatus, AdmissionStatus
+} from '../types/domain.js';
+
+
 
 export async function getTransactionsHandler(request: FastifyRequest, reply: FastifyReply) {
   const transactions = await prisma.transaction.findMany({
@@ -31,10 +37,7 @@ export async function getTransactionDetailHandler(request: FastifyRequest, reply
   return reply.send(transaction);
 }
 
-import {
-  TransactionType, TransactionPriority, TransactionStatus,
-  ResourceType, EventType, EventStatus, BedStatus
-} from '../types/domain.js';
+
 
 export async function createManualTransactionHandler(request: FastifyRequest, reply: FastifyReply) {
   const body = request.body as any;
@@ -106,7 +109,7 @@ export async function createPendingBedRequestHandler(request: FastifyRequest, re
 
 export async function acceptBedRequestHandler(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.params as any;
-  const { acceptedBy } = request.body as any;
+  const { acceptedBy } = (request.body as any) || {};
 
   const tx = await prisma.transaction.findUnique({
     where: { id },
@@ -132,35 +135,77 @@ export async function acceptBedRequestHandler(request: FastifyRequest, reply: Fa
     } catch (e) {}
   }
 
-  const result = await TransactionEngine.executeTransaction({
-    transactionNumber: tx.transactionNumber,
-    patientId: tx.patientId || undefined,
-    initiatedBy: acceptedBy || 'RESOURCE_MANAGER',
-    type: tx.type,
-    priority: tx.priority,
-    resourceType: tx.resourceType,
-    resourceId: tx.resourceId,
-    departmentId,
-    doctorId,
-    reason: reason || 'Bed request accepted and allocated.',
+  // 1. Update Bed Status to OCCUPIED
+  const bed = await prisma.bed.update({
+    where: { id: tx.resourceId },
+    data: {
+      status: BedStatus.OCCUPIED,
+      currentPatientId: tx.patientId || null,
+    },
+    include: { department: true },
   });
 
-  const bed = await prisma.bed.findUnique({ where: { id: tx.resourceId } });
-  const bedNumber = bed?.bedNumber || 'BED';
+  // 2. Create or Update Admission if patient exists
+  let admission = null;
+  if (tx.patientId) {
+    let activeDoctor = doctorId;
+    if (!activeDoctor) {
+      const doc = await prisma.doctor.findFirst({ where: { availabilityStatus: 'AVAILABLE' } });
+      activeDoctor = doc?.id;
+    }
+
+    admission = await prisma.admission.create({
+      data: {
+        patientId: tx.patientId,
+        doctorId: activeDoctor || '',
+        departmentId: departmentId || bed.departmentId,
+        bedId: bed.id,
+        admissionDate: new Date(),
+        status: AdmissionStatus.ADMITTED,
+        reason: reason || 'Bed Request Approved by Department Admin',
+      },
+    });
+  }
+
+  // 3. Update Transaction status to COMMITTED
+  const updatedTx = await prisma.transaction.update({
+    where: { id },
+    data: {
+      status: TransactionStatus.COMMITTED,
+    },
+    include: { patient: true, events: true },
+  });
+
+  // 4. Audit Log
+  await prisma.auditLog.create({
+    data: {
+      userId: acceptedBy || 'RESOURCE_MANAGER',
+      transactionId: tx.id,
+      action: 'BED_REQUEST_APPROVED',
+      entityType: 'Bed',
+      entityId: bed.id,
+      oldState: 'RESERVED',
+      newState: 'OCCUPIED',
+      reason: `Bed ${bed.bedNumber} request approved and allocated to patient.`,
+    },
+  });
 
   broadcastEvent('transaction:updated', {
-    transaction: result.transaction,
-    status: 'APPROVED',
-    bedNumber,
-    message: `Bed request approved. Bed ${bedNumber} assigned.`,
+    transaction: updatedTx,
+    status: 'COMMITTED',
+    bedNumber: bed.bedNumber,
+    message: `Bed Request Approved! Bed ${bed.bedNumber} allocated.`,
   });
+  broadcastEvent('resource:updated', { resourceType: 'BED', resource: bed });
 
   return reply.send({
-    result,
-    bedNumber,
-    message: `Bed request approved. Bed ${bedNumber} assigned.`,
+    transaction: updatedTx,
+    bedNumber: bed.bedNumber,
+    admission,
+    message: `Bed request approved! Bed ${bed.bedNumber} allocated successfully.`,
   });
 }
+
 
 export async function rejectBedRequestHandler(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.params as any;

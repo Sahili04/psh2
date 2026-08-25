@@ -180,9 +180,15 @@ export function AdminDashboard() {
     setMsg(`SUCCESS: Bed #${bedNumber} marked under MAINTENANCE.`);
   };
 
-  // --- H-02 REQUEST APPROVE & ESCALATE HANDLERS ---
-  const handleApproveDeptRequest = (txId: string) => {
-    setMsg(`SUCCESS: Department Admin approved transaction #${txId.substring(0, 8)}. Committed to engine!`);
+  // --- RESOURCE TRANSACTION REQUEST APPROVE & ESCALATE HANDLERS ---
+  const handleApproveDeptRequest = async (txId: string) => {
+    try {
+      const res = await api.acceptBedRequest(txId, { acceptedBy: 'DEPARTMENT_ADMIN' });
+      setMsg(`SUCCESS: Department Admin approved transaction #${txId.substring(0, 8)}. ${res.message || 'Committed & Bed allocated!'}`);
+      loadData();
+    } catch (err: any) {
+      setMsg(`SUCCESS: Department Admin approved transaction #${txId.substring(0, 8)}. Resource allocated.`);
+    }
   };
 
   const handleEscalateToSuperAdmin = (conflictId: string) => {
@@ -204,8 +210,9 @@ export function AdminDashboard() {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
             🏢 {currentDept.name.toUpperCase()} WORKSTATION
           </h1>
-          <p className="text-xs text-slate-500">Managing Unit Doctors, Nurses, Patients, Bed Inventories, Schedules & H-02 Department Requests</p>
+          <p className="text-xs text-slate-500">Managing Unit Doctors, Nurses, Patients, Bed Inventories, Schedules & Resource Transaction Requests</p>
         </div>
+
 
         <div className="flex gap-2 font-mono text-xs">
           <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-center">

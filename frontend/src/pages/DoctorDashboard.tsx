@@ -11,7 +11,7 @@ import {
 
 
 import { PendingBedRequestsSection } from '../components/PendingBedRequestsSection';
-import { playEmergencyBeep, stopEmergencyBeep } from '../services/audioAlert';
+import { playEmergencyBeep, stopEmergencyBeep, initAudioOnUserGesture } from '../services/audioAlert';
 import { useSocket } from '../context/SocketContext';
 
 export function DoctorDashboard() {
@@ -27,7 +27,12 @@ export function DoctorDashboard() {
   const [shiftMsg, setShiftMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    initAudioOnUserGesture();
+  }, []);
+
+  useEffect(() => {
     if (!socket) return;
+
 
     const handleSos = (data: any) => {
       console.log('🚨 Received Emergency SOS event:', data);
@@ -1037,6 +1042,25 @@ export function DoctorDashboard() {
               </div>
               <div className="font-semibold text-rose-900">Reason / Symptom: {sosAlertData.reason}</div>
             </div>
+
+            {/* Standby Ambulance Card */}
+            {sosAlertData.ambulance && (
+              <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl font-mono text-xs text-amber-950 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="font-extrabold text-xs text-amber-900 flex items-center gap-1.5">
+                    <span>🚑 EMERGENCY AMBULANCE STANDBY ASSIGNED</span>
+                  </div>
+                  <div className="text-[11px] text-amber-800">
+                    Vehicle: <strong>{sosAlertData.ambulance.vehicleNumber}</strong> ({sosAlertData.ambulance.type}) • Driver: {sosAlertData.ambulance.driverName} ({sosAlertData.ambulance.driverPhone})
+                  </div>
+                  <div className="text-[10px] text-amber-700 font-bold">{sosAlertData.ambulance.location}</div>
+                </div>
+                <span className="px-2.5 py-1 bg-amber-200 text-amber-900 font-black rounded-lg text-[10px] border border-amber-400 animate-pulse">
+                  STANDBY READY
+                </span>
+              </div>
+            )}
+
 
             {/* Patient Demographics & History Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">

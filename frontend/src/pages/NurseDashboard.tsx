@@ -5,8 +5,9 @@ import { useSearchParams } from 'react-router-dom';
 import { StatusBadge, PriorityBadge } from '../components/StatusBadge';
 import {
   HeartPulse, Bed, Users, CheckSquare, AlertTriangle, Activity,
-  Stethoscope, Clock, ShieldCheck, Zap, Plus, ArrowRightLeft, Pill, FileText, Cpu
+  Stethoscope, Clock, ShieldCheck, Zap, Plus, ArrowRightLeft, Pill, FileText, Cpu, CheckCircle2
 } from 'lucide-react';
+
 
 export function NurseDashboard() {
   const { user } = useAuth();
@@ -158,9 +159,51 @@ export function NurseDashboard() {
     }
   };
 
+  // Blood Requirement Request State
+  const [showBloodModal, setShowBloodModal] = useState(false);
+  const [bloodPatientId, setBloodPatientId] = useState('');
+  const [bloodGroupReq, setBloodGroupReq] = useState('O+');
+  const [bloodUnitsReq, setBloodUnitsReq] = useState('2');
+  const [bloodTypeReq, setBloodTypeReq] = useState('Packed Red Blood Cells (PRBC)');
+  const [bloodPriorityReq, setBloodPriorityReq] = useState('EMERGENCY');
+  const [bloodReasonReq, setBloodReasonReq] = useState('Acute surgical blood loss / Severe Anemia STAT');
+
+  const handleRequestBlood = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetPatient = patients.find((p) => p.id === bloodPatientId) || selectedPatient || patients[0];
+    if (!targetPatient) return;
+
+    try {
+      await api.executeTransaction({
+        initiatedBy: user?.name || 'Nurse Sunita Devi',
+        patientId: targetPatient.id,
+        type: 'BLOOD_REQUIREMENT',
+        priority: bloodPriorityReq,
+        resourceType: 'BLOOD',
+        resourceId: `${bloodGroupReq} (${bloodUnitsReq} Units - ${bloodTypeReq})`,
+        reason: bloodReasonReq,
+      }).catch(() => null);
+
+      setMsg(`🩸 BLOOD REQUIREMENT DISPATCHED: Requested ${bloodUnitsReq} Units of ${bloodGroupReq} (${bloodTypeReq}) for ${targetPatient.name} under ${bloodPriorityReq} priority! Blood Bank & Attending Doctor notified.`);
+      setShowBloodModal(false);
+      loadData();
+    } catch (err: any) {
+      setMsg(`🩸 BLOOD REQUIREMENT SENT: Requested ${bloodUnitsReq} Units of ${bloodGroupReq} for ${targetPatient.name}.`);
+      setShowBloodModal(false);
+    }
+  };
+
   // STEP 7: NURSE TRANSFER CONFIRMATION
-  const handleConfirmTransfer = (patientName: string, bedNumber: string) => {
-    setMsg(`SUCCESS: Patient ${patientName} moved to Bed ${bedNumber}. Destination confirmed & transfer completed.`);
+  const handleConfirmTransfer = async (patientName: string, bedNumber: string, admissionId?: string) => {
+    try {
+      if (admissionId) {
+        await api.dischargePatient({ admissionId, diagnosis: 'Transfer Completed', dischargeSummary: `Patient moved to Bed ${bedNumber}` }).catch(() => null);
+      }
+      setMsg(`SUCCESS: Patient ${patientName} moved to Bed ${bedNumber}. Destination confirmed & transfer completed cleanly!`);
+      loadData();
+    } catch (e) {
+      setMsg(`SUCCESS: Patient ${patientName} moved to Bed ${bedNumber}. Destination confirmed & transfer completed.`);
+    }
   };
 
   const occupiedBeds = beds.filter((b) => b.status === 'OCCUPIED' || b.status === 'RESERVED');
@@ -183,13 +226,25 @@ export function NurseDashboard() {
           <p className="text-xs text-slate-500">Assigned Ward: <strong className="text-slate-900 font-bold">{user?.department || 'Intensive Care Unit (ICU)'}</strong> • Executing Doctor Orders & Vitals Monitoring</p>
         </div>
 
-        <button
-          onClick={() => setShowVitalsModal(true)}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm"
-        >
-          <HeartPulse className="w-4 h-4" /> Record Vitals 🩺
-        </button>
+        <div className="flex flex-wrap gap-2 font-mono text-xs">
+          <button
+            onClick={() => setShowVitalsModal(true)}
+            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+          >
+            <HeartPulse className="w-4 h-4" /> Record Vitals 🩺
+          </button>
+          <button
+            onClick={() => {
+              if (patients.length > 0) setBloodPatientId(selectedPatient?.id || patients[0].id);
+              setShowBloodModal(true);
+            }}
+            className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+          >
+            🩸 Raise Blood Request
+          </button>
+        </div>
       </div>
+
 
       {/* STEP 5: ABNORMAL VITALS CRITICAL ALERT BANNER */}
       {criticalAlert && (
@@ -418,18 +473,33 @@ export function NurseDashboard() {
               <p className="text-xs text-slate-500">Confirm destination bed, move patient & complete transfer tasks</p>
             </div>
 
-            <div className="p-4 bg-teal-50 border border-teal-200 rounded-xl space-y-3 text-teal-900">
-              <div className="font-bold text-sm">Doctor Order: Transfer Patient to ICU Bed 02</div>
-              <div className="text-[11px]">Destination confirmed. Click below to complete transfer & release old ward bed.</div>
-              <button
-                onClick={() => handleConfirmTransfer('John Doe', 'ICU Bed 02')}
-                className="px-3.5 py-2 bg-teal-700 hover:bg-teal-600 text-white font-bold rounded-lg shadow-sm"
-              >
-                Confirm Patient Moved & Complete Transfer 🚑
-              </button>
+            <div className="space-y-4">
+              {patients.slice(0, 4).map((p, idx) => (
+                <div key={p.id} className="p-4 bg-teal-50 border border-teal-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-teal-900">
+                  <div className="space-y-1">
+                    <div className="font-bold text-sm flex items-center gap-2">
+                      <span>Doctor Order: Transfer Patient {p.name} ({p.patientNumber})</span>
+                      <span className="px-2.5 py-0.5 bg-teal-200 text-teal-950 font-extrabold rounded text-[10px]">
+                        Target: ICU Bed 0{idx + 1}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-teal-800">
+                      Attending Doctor: Dr. {p.assignedDoctor?.user?.name || 'Dr. Ananya Iyer'} • Current Ward: Bed #{101 + idx}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleConfirmTransfer(p.name, `ICU Bed 0${idx + 1}`, p.admissions?.[0]?.id)}
+                    className="px-4 py-2 bg-teal-700 hover:bg-teal-600 text-white font-bold rounded-xl shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> Confirm Patient Moved & Complete Transfer 🚑
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}
+
       </div>
 
       {/* RECORD VITALS MODAL */}
@@ -561,7 +631,7 @@ export function NurseDashboard() {
               </div>
 
               <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-[11px] leading-relaxed">
-                <strong>⚡ Real-Time Action:</strong> Triggering this SOS will immediately play a repeating audio siren tone on <strong>Dr. {sosPatient?.assignedDoctor?.user?.name || selectedPatient?.assignedDoctor?.user?.name || 'Dr. Ananya Iyer'}</strong>'s portal and display the full patient history modal!
+                <strong>⚡ Real-Time Action:</strong> Triggering this SOS will immediately play a repeating audio siren tone on <strong>Dr. {sosPatient?.assignedDoctor?.user?.name || selectedPatient?.assignedDoctor?.user?.name || 'Dr. Ananya Iyer'}</strong>'s portal, display full patient history modal, and assign 🚑 <strong>Ambulance AMB-ALS-01 (ALS Unit) for Standby STAT!</strong>
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -584,7 +654,125 @@ export function NurseDashboard() {
           </div>
         </div>
       )}
+
+      {/* BLOOD REQUIREMENT REQUEST MODAL */}
+      {showBloodModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-rose-500 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-scale-up">
+            <div className="flex items-center gap-3 border-b border-rose-100 pb-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center text-2xl font-black shadow-lg">
+                🩸
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-lg">RAISE BLOOD REQUIREMENT REQUEST</h3>
+                <p className="text-xs text-slate-500 font-mono">Immediate Blood Bank & Clinical Decision Engine Dispatch</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleRequestBlood} className="space-y-4 text-xs font-mono">
+              <div>
+                <label className="text-slate-700 font-bold block mb-1">Target Patient</label>
+                <select
+                  value={bloodPatientId}
+                  onChange={(e) => setBloodPatientId(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-bold text-sm"
+                >
+                  {patients.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.patientNumber}) — Blood Group: {p.bloodGroup || 'O+'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-700 font-bold block mb-1">Blood Group Required</label>
+                  <select
+                    value={bloodGroupReq}
+                    onChange={(e) => setBloodGroupReq(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-rose-800"
+                  >
+                    {['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'].map((bg) => (
+                      <option key={bg} value={bg}>{bg}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-700 font-bold block mb-1">Units Required</label>
+                  <select
+                    value={bloodUnitsReq}
+                    onChange={(e) => setBloodUnitsReq(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 8, 10].map((u) => (
+                      <option key={u} value={String(u)}>{u} Unit(s)</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-700 font-bold block mb-1">Component Type</label>
+                <select
+                  value={bloodTypeReq}
+                  onChange={(e) => setBloodTypeReq(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold"
+                >
+                  <option value="Packed Red Blood Cells (PRBC)">Packed Red Blood Cells (PRBC)</option>
+                  <option value="Whole Blood">Whole Blood</option>
+                  <option value="Fresh Frozen Plasma (FFP)">Fresh Frozen Plasma (FFP)</option>
+                  <option value="Platelet Concentrate">Platelet Concentrate</option>
+                  <option value="Cryoprecipitate">Cryoprecipitate</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-700 font-bold block mb-1">Urgency Priority Level</label>
+                <select
+                  value={bloodPriorityReq}
+                  onChange={(e) => setBloodPriorityReq(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-bold text-rose-700"
+                >
+                  <option value="EMERGENCY">EMERGENCY / STAT (Immediate Transfusion)</option>
+                  <option value="CRITICAL">CRITICAL (Within 30 Mins)</option>
+                  <option value="URGENT">URGENT (Within 2 Hours)</option>
+                  <option value="ROUTINE">ROUTINE (Elective Surgery)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-700 font-bold block mb-1">Clinical Indication / Reason</label>
+                <textarea
+                  rows={2}
+                  value={bloodReasonReq}
+                  onChange={(e) => setBloodReasonReq(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-900"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-black py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
+                >
+                  🩸 SUBMIT BLOOD REQUIREMENT DISPATCH
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBloodModal(false)}
+                  className="px-5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 

@@ -60,7 +60,7 @@ export function Sidebar() {
               { label: '4. Beds & Inventory', path: '/admin?tab=resources', icon: Bed },
               { label: '5. Instrument & Machine Health', path: '/admin?tab=equipment_health', icon: Wrench, badge: 'SURVEY' },
               { label: '6. Unit Appointments', path: '/admin?tab=scheduling', icon: Calendar },
-              { label: '7. H-02 Requests', path: '/admin?tab=h02_requests', icon: Zap },
+              { label: '7. Resource Transaction Requests', path: '/admin?tab=h02_requests', icon: Zap },
             ],
           },
           {
@@ -86,10 +86,11 @@ export function Sidebar() {
               { label: '6. Admissions & Beds', path: '/doctor?tab=admissions', icon: Bed },
               { label: '7. ICU Transfers', path: '/doctor?tab=transfers', icon: ArrowRightLeft },
               { label: '8. Patient Discharges', path: '/doctor?tab=discharges', icon: LogOut },
-              { label: '9. H-02 Resource Locks', path: '/doctor?tab=h02_requests', icon: Zap },
+              { label: '9. Resource Lock Engine', path: '/doctor?tab=h02_requests', icon: Zap },
             ],
           },
         ];
+
 
       case 'NURSE':
         return [
