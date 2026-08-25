@@ -23,7 +23,7 @@ export async function runSimulationScenarioHandler(request: FastifyRequest, repl
         result = await SimulationService.runPartialFailureScenario();
         break;
       case 'NETWORK_TIMEOUT':
-        result = await SimulationService.runDuplicateEventScenario(); // Simulates network retry with idempotency
+        result = await SimulationService.runNetworkTimeoutScenario(); // Simulates network retry with idempotency
         break;
       case 'STRESS_100':
         result = await SimulationService.runStressTest(100);
