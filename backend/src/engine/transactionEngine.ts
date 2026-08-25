@@ -23,6 +23,19 @@ export interface CreateTransactionParams {
   simulateFailureStep?: string; // Optional failure injection for demo (e.g. 'EQUIPMENT_FAILED' or 'DOCTOR_FAILED')
 }
 
+export interface MultiResourceParams {
+  transactionNumber?: string;
+  patientId: string;
+  initiatedBy: string;
+  priority: string;
+  bedId: string;
+  doctorId: string;
+  equipmentId: string;
+  departmentId?: string;
+  reason?: string;
+  simulateFailureStep?: string;
+}
+
 export interface TransactionResult {
   transaction: any;
   status: string;
@@ -511,5 +524,467 @@ export class TransactionEngine {
 
     broadcastEvent('event:created', { event, transaction });
     return { event, isOutOfOrder, expectedSeq };
+  }
+
+  /**
+   * Feature 2: Atomic Multi-Resource Allocation (Bed + Doctor + Equipment/Ventilator)
+   * 
+   * Allocates multiple resources as ONE atomic transaction.
+   * If ANY resource fails → all previously reserved resources are released (Saga Compensation).
+   * 
+   * "Either the patient gets the complete resource set — or the hospital state returns
+   *  to exactly where it was."
+   */
+  static async executeMultiResourceTransaction(params: MultiResourceParams): Promise<TransactionResult> {
+    const txNumber = params.transactionNumber || `TX-MULTI-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const primaryResourceKey = `${ResourceType.BED}:${params.bedId}`;
+
+    // Acquire lock on the primary resource (bed) with priority ordering
+    return await resourceLockManager.acquireLock(primaryResourceKey, async () => {
+
+      // Idempotency check
+      const existingTx = await prisma.transaction.findUnique({
+        where: { transactionNumber: txNumber },
+        include: { events: true },
+      });
+
+      if (existingTx) {
+        return {
+          transaction: existingTx,
+          status: existingTx.status,
+          events: existingTx.events,
+          isDuplicate: true,
+          message: `Multi-resource transaction ${txNumber} already exists in state ${existingTx.status}.`,
+        };
+      }
+
+      // Execute inside a Prisma DB transaction for atomicity
+      return await prisma.$transaction(async (db: any) => {
+        const eventsList: any[] = [];
+        const reservedResources: { type: string; id: string }[] = [];
+
+        // Create the transaction record
+        const transaction = await db.transaction.create({
+          data: {
+            transactionNumber: txNumber,
+            patientId: params.patientId,
+            initiatedBy: params.initiatedBy,
+            type: TransactionType.MULTI_RESOURCE_ADMISSION,
+            priority: params.priority,
+            status: TransactionStatus.REQUESTED,
+            resourceType: ResourceType.BED,
+            resourceId: params.bedId,
+          },
+        });
+
+        // Event #1: Multi-resource request initiated
+        const evt1 = await db.event.create({
+          data: {
+            eventId: `EVT-${transaction.id}-1`,
+            transactionId: transaction.id,
+            eventType: EventType.RESOURCE_REQUESTED,
+            sequenceNumber: 1,
+            payload: JSON.stringify({
+              multiResource: true,
+              bedId: params.bedId,
+              doctorId: params.doctorId,
+              equipmentId: params.equipmentId,
+              priority: params.priority,
+            }),
+            status: EventStatus.PROCESSED,
+            processedAt: new Date(),
+          },
+        });
+        eventsList.push(evt1);
+
+        await db.transaction.update({
+          where: { id: transaction.id },
+          data: { status: TransactionStatus.VALIDATING },
+        });
+
+        // ═══════════════════════════════════════════════════════════════
+        // STEP 1: Reserve BED
+        // ═══════════════════════════════════════════════════════════════
+        const bed = await db.bed.findUnique({ where: { id: params.bedId } });
+        if (!bed || bed.status !== BedStatus.AVAILABLE) {
+          // Bed not available — fail immediately, nothing to rollback yet
+          const failedTx = await db.transaction.update({
+            where: { id: transaction.id },
+            data: { status: TransactionStatus.ESCALATED },
+          });
+
+          const conflict = await db.conflict.create({
+            data: {
+              transactionId: transaction.id,
+              resourceId: params.bedId,
+              conflictingTransactionId: transaction.id,
+              winnerTransactionId: null,
+              reason: `ICU Bed ${params.bedId} not available for multi-resource admission. Status: ${bed?.status || 'NOT_FOUND'}`,
+              status: ConflictStatus.OPEN,
+            },
+          });
+
+          await db.event.create({
+            data: {
+              eventId: `EVT-${transaction.id}-2-FAIL`,
+              transactionId: transaction.id,
+              eventType: EventType.RESOURCE_FAILED,
+              sequenceNumber: 2,
+              payload: JSON.stringify({ step: 'BED_ALLOCATION', bedId: params.bedId, reason: 'Bed unavailable' }),
+              status: EventStatus.PROCESSED,
+              processedAt: new Date(),
+            },
+          });
+
+          broadcastEvent('transaction:updated', { transaction: failedTx });
+          return {
+            transaction: failedTx,
+            status: TransactionStatus.ESCALATED,
+            events: eventsList,
+            conflict,
+            message: `Multi-resource allocation failed at Step 1 (Bed). ICU Bed not available.`,
+          };
+        }
+
+        // Reserve the bed
+        await db.bed.update({
+          where: { id: params.bedId },
+          data: { status: BedStatus.RESERVED, currentPatientId: params.patientId },
+        });
+        reservedResources.push({ type: 'BED', id: params.bedId });
+
+        const evtBed = await db.event.create({
+          data: {
+            eventId: `EVT-${transaction.id}-2-BED`,
+            transactionId: transaction.id,
+            eventType: EventType.RESOURCE_RESERVED,
+            sequenceNumber: 2,
+            payload: JSON.stringify({ step: 'BED_RESERVED', bedId: params.bedId }),
+            status: EventStatus.PROCESSED,
+            processedAt: new Date(),
+          },
+        });
+        eventsList.push(evtBed);
+
+        // ═══════════════════════════════════════════════════════════════
+        // STEP 2: Reserve DOCTOR
+        // ═══════════════════════════════════════════════════════════════
+        const doctor = await db.doctor.findUnique({ where: { id: params.doctorId } });
+        const doctorUnavailable = !doctor || doctor.availabilityStatus !== 'AVAILABLE' || params.simulateFailureStep === 'DOCTOR_FAILED';
+
+        if (doctorUnavailable) {
+          // Doctor not available → COMPENSATE: release bed
+          await db.transaction.update({
+            where: { id: transaction.id },
+            data: { status: TransactionStatus.COMPENSATING },
+          });
+
+          await db.event.create({
+            data: {
+              eventId: `EVT-${transaction.id}-3-FAIL`,
+              transactionId: transaction.id,
+              eventType: EventType.RESOURCE_FAILED,
+              sequenceNumber: 3,
+              payload: JSON.stringify({ step: 'DOCTOR_ASSIGNMENT', doctorId: params.doctorId, reason: 'Doctor unavailable' }),
+              status: EventStatus.PROCESSED,
+              processedAt: new Date(),
+            },
+          });
+
+          // SAGA COMPENSATION: Release bed
+          await db.bed.update({
+            where: { id: params.bedId },
+            data: { status: BedStatus.AVAILABLE, currentPatientId: null },
+          });
+
+          await db.event.create({
+            data: {
+              eventId: `EVT-${transaction.id}-4-COMP`,
+              transactionId: transaction.id,
+              eventType: EventType.COMPENSATION_STARTED,
+              sequenceNumber: 4,
+              payload: JSON.stringify({ action: 'RELEASING_BED', bedId: params.bedId }),
+              status: EventStatus.PROCESSED,
+              processedAt: new Date(),
+            },
+          });
+
+          await db.event.create({
+            data: {
+              eventId: `EVT-${transaction.id}-5-REL`,
+              transactionId: transaction.id,
+              eventType: EventType.RESOURCE_RELEASED,
+              sequenceNumber: 5,
+              payload: JSON.stringify({ resourceType: 'BED', resourceId: params.bedId, releasedAt: new Date() }),
+              status: EventStatus.PROCESSED,
+              processedAt: new Date(),
+            },
+          });
+
+          const rolledBackTx = await db.transaction.update({
+            where: { id: transaction.id },
+            data: { status: TransactionStatus.ROLLED_BACK },
+          });
+
+          await db.event.create({
+            data: {
+              eventId: `EVT-${transaction.id}-6-ROLL`,
+              transactionId: transaction.id,
+              eventType: EventType.ROLLED_BACK,
+              sequenceNumber: 6,
+              payload: JSON.stringify({ status: 'ROLLED_BACK', reason: 'Doctor unavailable, bed released' }),
+              status: EventStatus.PROCESSED,
+              processedAt: new Date(),
+            },
+          });
+
+          await db.auditLog.create({
+            data: {
+              userId: params.initiatedBy,
+              transactionId: transaction.id,
+              action: 'SAGA_COMPENSATION_COMPLETED',
+              entityType: 'Transaction',
+              entityId: transaction.id,
+              oldState: TransactionStatus.RESERVED,
+              newState: TransactionStatus.ROLLED_BACK,
+              reason: 'Doctor unavailable during multi-resource allocation. Bed released via Saga Compensation.',
+            },
+          });
+
+          broadcastEvent('transaction:updated', { transaction: rolledBackTx });
+          return {
+            transaction: rolledBackTx,
+            status: TransactionStatus.ROLLED_BACK,
+            events: eventsList,
+            message: 'Multi-resource allocation failed at Step 2 (Doctor). Bed released via Saga Compensation. Hospital state restored.',
+          };
+        }
+
+        // Reserve the doctor
+        await db.doctor.update({
+          where: { id: params.doctorId },
+          data: { availabilityStatus: 'BUSY' },
+        });
+        reservedResources.push({ type: 'DOCTOR', id: params.doctorId });
+
+        const evtDoc = await db.event.create({
+          data: {
+            eventId: `EVT-${transaction.id}-3-DOC`,
+            transactionId: transaction.id,
+            eventType: EventType.DOCTOR_ASSIGNED,
+            sequenceNumber: 3,
+            payload: JSON.stringify({ step: 'DOCTOR_ASSIGNED', doctorId: params.doctorId }),
+            status: EventStatus.PROCESSED,
+            processedAt: new Date(),
+          },
+        });
+        eventsList.push(evtDoc);
+
+        // ═══════════════════════════════════════════════════════════════
+        // STEP 3: Reserve EQUIPMENT (Ventilator)
+        // ═══════════════════════════════════════════════════════════════
+        const equipment = await db.equipment.findUnique({ where: { id: params.equipmentId } });
+        const equipmentUnavailable = !equipment || equipment.status !== EquipmentStatus.AVAILABLE || params.simulateFailureStep === 'EQUIPMENT_FAILED';
+
+        if (equipmentUnavailable) {
+          // Equipment not available → COMPENSATE: release bed + doctor
+          await db.transaction.update({
+            where: { id: transaction.id },
+            data: { status: TransactionStatus.COMPENSATING },
+          });
+
+          await db.event.create({
+            data: {
+              eventId: `EVT-${transaction.id}-4-FAIL`,
+              transactionId: transaction.id,
+              eventType: EventType.RESOURCE_FAILED,
+              sequenceNumber: 4,
+              payload: JSON.stringify({ step: 'EQUIPMENT_ALLOCATION', equipmentId: params.equipmentId, reason: 'Equipment/Ventilator unavailable' }),
+              status: EventStatus.PROCESSED,
+              processedAt: new Date(),
+            },
+          });
+
+          // SAGA COMPENSATION: Release bed + doctor
+          await db.bed.update({
+            where: { id: params.bedId },
+            data: { status: BedStatus.AVAILABLE, currentPatientId: null },
+          });
+
+          await db.doctor.update({
+            where: { id: params.doctorId },
+            data: { availabilityStatus: 'AVAILABLE' },
+          });
+
+          await db.event.create({
+            data: {
+              eventId: `EVT-${transaction.id}-5-COMP`,
+              transactionId: transaction.id,
+              eventType: EventType.COMPENSATION_STARTED,
+              sequenceNumber: 5,
+              payload: JSON.stringify({ action: 'RELEASING_BED_AND_DOCTOR', bedId: params.bedId, doctorId: params.doctorId }),
+              status: EventStatus.PROCESSED,
+              processedAt: new Date(),
+            },
+          });
+
+          await db.event.create({
+            data: {
+              eventId: `EVT-${transaction.id}-6-REL`,
+              transactionId: transaction.id,
+              eventType: EventType.RESOURCE_RELEASED,
+              sequenceNumber: 6,
+              payload: JSON.stringify({ releasedResources: ['BED', 'DOCTOR'], releasedAt: new Date() }),
+              status: EventStatus.PROCESSED,
+              processedAt: new Date(),
+            },
+          });
+
+          const rolledBackTx = await db.transaction.update({
+            where: { id: transaction.id },
+            data: { status: TransactionStatus.ROLLED_BACK },
+          });
+
+          await db.event.create({
+            data: {
+              eventId: `EVT-${transaction.id}-7-ROLL`,
+              transactionId: transaction.id,
+              eventType: EventType.ROLLED_BACK,
+              sequenceNumber: 7,
+              payload: JSON.stringify({ status: 'ROLLED_BACK', reason: 'Equipment unavailable, bed + doctor released' }),
+              status: EventStatus.PROCESSED,
+              processedAt: new Date(),
+            },
+          });
+
+          await db.auditLog.create({
+            data: {
+              userId: params.initiatedBy,
+              transactionId: transaction.id,
+              action: 'SAGA_COMPENSATION_COMPLETED',
+              entityType: 'Transaction',
+              entityId: transaction.id,
+              oldState: TransactionStatus.PROCESSING,
+              newState: TransactionStatus.ROLLED_BACK,
+              reason: 'Equipment/Ventilator unavailable during multi-resource allocation. Bed + Doctor released via Saga Compensation.',
+            },
+          });
+
+          broadcastEvent('transaction:updated', { transaction: rolledBackTx });
+          return {
+            transaction: rolledBackTx,
+            status: TransactionStatus.ROLLED_BACK,
+            events: eventsList,
+            message: 'Multi-resource allocation failed at Step 3 (Equipment/Ventilator). Bed + Doctor released via Saga Compensation. Hospital state restored.',
+          };
+        }
+
+        // Reserve the equipment
+        await db.equipment.update({
+          where: { id: params.equipmentId },
+          data: { status: EquipmentStatus.RESERVED, currentPatientId: params.patientId },
+        });
+        reservedResources.push({ type: 'EQUIPMENT', id: params.equipmentId });
+
+        const evtEq = await db.event.create({
+          data: {
+            eventId: `EVT-${transaction.id}-4-EQ`,
+            transactionId: transaction.id,
+            eventType: EventType.EQUIPMENT_ASSIGNED,
+            sequenceNumber: 4,
+            payload: JSON.stringify({ step: 'EQUIPMENT_RESERVED', equipmentId: params.equipmentId }),
+            status: EventStatus.PROCESSED,
+            processedAt: new Date(),
+          },
+        });
+        eventsList.push(evtEq);
+
+        // ═══════════════════════════════════════════════════════════════
+        // ALL 3 RESOURCES RESERVED — COMMIT ATOMICALLY
+        // ═══════════════════════════════════════════════════════════════
+        await db.transaction.update({
+          where: { id: transaction.id },
+          data: { status: TransactionStatus.PROCESSING },
+        });
+
+        // Finalize all resource states
+        await db.bed.update({
+          where: { id: params.bedId },
+          data: { status: BedStatus.OCCUPIED, currentPatientId: params.patientId },
+        });
+
+        await db.equipment.update({
+          where: { id: params.equipmentId },
+          data: { status: EquipmentStatus.IN_USE, currentPatientId: params.patientId },
+        });
+
+        // Create admission record
+        const admission = await db.admission.create({
+          data: {
+            patientId: params.patientId,
+            doctorId: params.doctorId,
+            departmentId: params.departmentId || 'DEPT-DEFAULT',
+            bedId: params.bedId,
+            status: AdmissionStatus.ADMITTED,
+            reason: params.reason || 'Multi-Resource ICU Admission (Bed + Doctor + Ventilator)',
+          },
+          include: { patient: true, doctor: { include: { user: true } }, bed: true },
+        });
+
+        await db.patient.update({
+          where: { id: params.patientId },
+          data: { status: 'ADMITTED' },
+        });
+
+        // COMMIT
+        const committedTx = await db.transaction.update({
+          where: { id: transaction.id },
+          data: { status: TransactionStatus.COMMITTED },
+        });
+
+        const evtCommit = await db.event.create({
+          data: {
+            eventId: `EVT-${transaction.id}-5-COMMIT`,
+            transactionId: transaction.id,
+            eventType: EventType.COMMITTED,
+            sequenceNumber: 5,
+            payload: JSON.stringify({
+              committedAt: new Date(),
+              allocatedResources: {
+                bed: params.bedId,
+                doctor: params.doctorId,
+                equipment: params.equipmentId,
+              },
+            }),
+            status: EventStatus.PROCESSED,
+            processedAt: new Date(),
+          },
+        });
+        eventsList.push(evtCommit);
+
+        await db.auditLog.create({
+          data: {
+            userId: params.initiatedBy,
+            transactionId: transaction.id,
+            action: 'MULTI_RESOURCE_COMMITTED',
+            entityType: 'Transaction',
+            entityId: transaction.id,
+            newState: TransactionStatus.COMMITTED,
+            reason: `Multi-resource allocation committed: Bed(${params.bedId}) + Doctor(${params.doctorId}) + Equipment(${params.equipmentId})`,
+          },
+        });
+
+        broadcastEvent('transaction:updated', { transaction: committedTx });
+        broadcastEvent('resource:updated', { resourceType: 'MULTI', resources: reservedResources });
+
+        return {
+          transaction: committedTx,
+          status: TransactionStatus.COMMITTED,
+          events: eventsList,
+          admission,
+          message: `Multi-resource admission committed successfully. Bed + Doctor + Ventilator allocated atomically.`,
+        };
+      });
+    }, params.priority);
   }
 }

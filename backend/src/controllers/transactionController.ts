@@ -3,6 +3,27 @@ import { prisma } from '../config/prisma.js';
 import { TransactionEngine } from '../engine/transactionEngine.js';
 import { broadcastEvent } from '../websocket/broadcaster.js';
 
+export async function createMultiResourceTransactionHandler(request: FastifyRequest, reply: FastifyReply) {
+  const body = request.body as any;
+  try {
+    const result = await TransactionEngine.executeMultiResourceTransaction({
+      transactionNumber: body.transactionNumber,
+      patientId: body.patientId,
+      initiatedBy: body.initiatedBy || 'SYSTEM',
+      priority: body.priority,
+      bedId: body.bedId,
+      doctorId: body.doctorId,
+      equipmentId: body.equipmentId,
+      departmentId: body.departmentId,
+      reason: body.reason,
+      simulateFailureStep: body.simulateFailureStep,
+    });
+    return reply.send(result);
+  } catch (error: any) {
+    return reply.status(500).send({ error: error.message || 'Multi-resource transaction failed' });
+  }
+}
+
 export async function getTransactionsHandler(request: FastifyRequest, reply: FastifyReply) {
   const transactions = await prisma.transaction.findMany({
     include: {

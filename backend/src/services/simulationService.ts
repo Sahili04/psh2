@@ -194,6 +194,105 @@ export class SimulationService {
   }
 
   /**
+   * Scenario 6 — Multi-Resource Atomic Allocation (Bed + Doctor + Ventilator) — ALL SUCCEED
+   */
+  static async runMultiResourceSuccess() {
+    const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+    const patient = await prisma.patient.findFirst({ where: { priority: 'EMERGENCY' } }) || await prisma.patient.findFirst();
+    let bed = await prisma.bed.findFirst({ where: { type: 'ICU', status: 'AVAILABLE' } });
+    if (!bed) {
+      bed = await prisma.bed.findFirst({ where: { type: 'ICU' } });
+      if (bed) await prisma.bed.update({ where: { id: bed.id }, data: { status: 'AVAILABLE', currentPatientId: null } });
+    }
+    if (!bed) throw new Error('No ICU bed found in database');
+
+    const doctor = await prisma.doctor.findFirst({ where: { availabilityStatus: 'AVAILABLE' } });
+    if (!doctor) throw new Error('No available doctor found');
+    await prisma.doctor.update({ where: { id: doctor.id }, data: { availabilityStatus: 'AVAILABLE' } });
+
+    const equipment = await prisma.equipment.findFirst({ where: { status: 'AVAILABLE' } });
+    if (!equipment) throw new Error('No available equipment found');
+    await prisma.equipment.update({ where: { id: equipment.id }, data: { status: 'AVAILABLE', currentPatientId: null } });
+
+    const res = await TransactionEngine.executeMultiResourceTransaction({
+      transactionNumber: `TX-MULTI-OK-${Date.now()}`,
+      patientId: patient!.id,
+      initiatedBy: adminUser!.id,
+      priority: TransactionPriority.EMERGENCY,
+      bedId: bed.id,
+      doctorId: doctor.id,
+      equipmentId: equipment.id,
+    });
+
+    const bedAfter = await prisma.bed.findUnique({ where: { id: bed.id } });
+    const doctorAfter = await prisma.doctor.findUnique({ where: { id: doctor.id } });
+    const eqAfter = await prisma.equipment.findUnique({ where: { id: equipment.id } });
+
+    return {
+      scenario: 'Multi-Resource Atomic Allocation (Success)',
+      transactionNumber: res.transaction.transactionNumber,
+      finalStatus: res.status,
+      resources: {
+        bed: { id: bed.id, number: bed.bedNumber, statusAfter: bedAfter?.status },
+        doctor: { id: doctor.id, statusAfter: doctorAfter?.availabilityStatus },
+        equipment: { id: equipment.id, name: equipment.name, statusAfter: eqAfter?.status },
+      },
+      allAllocated: res.status === 'COMMITTED',
+      message: res.message,
+    };
+  }
+
+  /**
+   * Scenario 7 — Multi-Resource Atomic Allocation — VENTILATOR FAILS → Rollback Bed + Doctor
+   */
+  static async runMultiResourceVentilatorFail() {
+    const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+    const patient = await prisma.patient.findFirst({ where: { priority: 'CRITICAL' } }) || await prisma.patient.findFirst();
+    let bed = await prisma.bed.findFirst({ where: { type: 'ICU', status: 'AVAILABLE' } });
+    if (!bed) {
+      bed = await prisma.bed.findFirst({ where: { type: 'ICU' } });
+      if (bed) await prisma.bed.update({ where: { id: bed.id }, data: { status: 'AVAILABLE', currentPatientId: null } });
+    }
+    if (!bed) throw new Error('No ICU bed found');
+
+    const doctor = await prisma.doctor.findFirst({ where: { availabilityStatus: 'AVAILABLE' } });
+    if (!doctor) throw new Error('No available doctor found');
+    await prisma.doctor.update({ where: { id: doctor.id }, data: { availabilityStatus: 'AVAILABLE' } });
+
+    const equipment = await prisma.equipment.findFirst();
+    if (!equipment) throw new Error('No equipment found');
+    await prisma.equipment.update({ where: { id: equipment.id }, data: { status: 'MAINTENANCE' } });
+
+    const res = await TransactionEngine.executeMultiResourceTransaction({
+      transactionNumber: `TX-MULTI-VENTFAIL-${Date.now()}`,
+      patientId: patient!.id,
+      initiatedBy: adminUser!.id,
+      priority: TransactionPriority.CRITICAL,
+      bedId: bed.id,
+      doctorId: doctor.id,
+      equipmentId: equipment.id,
+    });
+
+    const bedAfter = await prisma.bed.findUnique({ where: { id: bed.id } });
+    const doctorAfter = await prisma.doctor.findUnique({ where: { id: doctor.id } });
+
+    return {
+      scenario: 'Multi-Resource Atomic Allocation (Ventilator Failure → Saga Rollback)',
+      transactionNumber: res.transaction.transactionNumber,
+      finalStatus: res.status,
+      resources: {
+        bed: { id: bed.id, statusAfter: bedAfter?.status, released: bedAfter?.status === 'AVAILABLE' },
+        doctor: { id: doctor.id, statusAfter: doctorAfter?.availabilityStatus, released: doctorAfter?.availabilityStatus === 'AVAILABLE' },
+        equipment: { id: equipment.id, statusBefore: 'MAINTENANCE', failedAllocation: true },
+      },
+      compensationExecuted: res.status === 'ROLLED_BACK',
+      bedReleased: bedAfter?.status === 'AVAILABLE',
+      doctorReleased: doctorAfter?.availabilityStatus === 'AVAILABLE',
+      message: res.message,
+    };
+  }
+
+  /**
    * High Concurrency Stress Test Suite (100, 500, 1000 concurrent requests)
    */
   static async runStressTest(concurrencyCount: number) {

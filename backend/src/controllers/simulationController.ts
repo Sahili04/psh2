@@ -34,6 +34,12 @@ export async function runSimulationScenarioHandler(request: FastifyRequest, repl
       case 'STRESS_1000':
         result = await SimulationService.runStressTest(1000);
         break;
+      case 'MULTI_RESOURCE_SUCCESS':
+        result = await SimulationService.runMultiResourceSuccess();
+        break;
+      case 'MULTI_RESOURCE_VENTILATOR_FAIL':
+        result = await SimulationService.runMultiResourceVentilatorFail();
+        break;
       default:
         return reply.status(400).send({ error: 'Unknown simulation scenario' });
     }
