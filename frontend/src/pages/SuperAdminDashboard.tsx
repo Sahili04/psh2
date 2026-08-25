@@ -1,15 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../services/api';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   ShieldCheck, UserPlus, Trash2, Zap, Users, Building, Activity, BarChart3, Clock, Filter,
-  CheckCircle2, Key, ToggleLeft, ToggleRight, ArrowRightLeft, Plus, Edit, AlertTriangle, Layers, Bed, Cpu
+  CheckCircle2, Key, ToggleLeft, ToggleRight, ArrowRightLeft, Plus, Edit, AlertTriangle, Layers, Bed, Cpu, Radio
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { LiveActivityFeed } from '../components/LiveActivityFeed';
+import { useSocket } from '../context/SocketContext';
 
 export function SuperAdminDashboard() {
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as any;
+  const { socket, isConnected } = useSocket();
 
   const [users, setUsers] = useState<any[]>([]);
   const [depts, setDepts] = useState<any[]>([]);
@@ -20,7 +23,7 @@ export function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Active Super Admin Tab
-  const [activeTab, setActiveTab] = useState<'overview' | 'departments' | 'staff' | 'resources' | 'h02_control'>(tabParam || 'overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'live_feed' | 'departments' | 'staff' | 'resources' | 'h02_control'>(tabParam || 'overview');
 
   useEffect(() => {
     if (tabParam) {
@@ -81,6 +84,22 @@ export function SuperAdminDashboard() {
   };
 
   const [createdCredentialResult, setCreatedCredentialResult] = useState<any>(null);
+
+  // Real-time WebSocket auto-refresh — re-fetch dashboard data on every transaction/conflict event
+  const handleLiveDataChange = useCallback(() => {
+    // Debounced refresh: re-load beds, transactions, conflicts in background
+    Promise.all([
+      api.getBeds().catch(() => []),
+      api.getTransactions().catch(() => []),
+      api.getConflicts().catch(() => []),
+      api.getEquipment().catch(() => []),
+    ]).then(([b, tx, c, eq]) => {
+      setBeds(Array.isArray(b) ? b : []);
+      setTransactions(Array.isArray(tx) ? tx : []);
+      setConflicts(Array.isArray(c) ? c : []);
+      setEquipment(Array.isArray(eq) ? eq : []);
+    });
+  }, []);
 
   // --- STAFF & DEPT ADMIN PROVISIONING ACTIONS ---
   const handleCreateStaff = async (e: React.FormEvent) => {
@@ -259,6 +278,69 @@ export function SuperAdminDashboard() {
 
       {/* MAIN FULL-WIDTH CONTENT AREA */}
       <div className="space-y-6">
+
+      {/* TAB: LIVE REAL-TIME FEED */}
+      {activeTab === 'live_feed' && (
+        <div className="space-y-6">
+          {/* Explanation Banner */}
+          <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                <Radio className="w-5 h-5 text-emerald-500 animate-pulse" /> Live Request Stream — Real-Time Transaction Processing
+              </h2>
+              <span className={`text-xs font-mono font-bold px-3 py-1 rounded-full border ${
+                isConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+              }`}>
+                WebSocket: {isConnected ? 'CONNECTED ✓' : 'DISCONNECTED ✗'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              <strong>What you're seeing:</strong> Every resource allocation request, conflict resolution, Saga compensation, and priority preemption happening across the entire hospital — live. Open the <strong>Simulation Lab</strong> in another tab and fire scenarios to see requests flowing in below.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 text-xs font-mono">
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+                <div className="font-bold text-emerald-800">COMMITTED</div>
+                <div className="text-[10px] text-emerald-600">Resource allocated ✓</div>
+              </div>
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                <div className="font-bold text-amber-800">ESCALATED</div>
+                <div className="text-[10px] text-amber-600">Lost priority conflict</div>
+              </div>
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-center">
+                <div className="font-bold text-rose-800">ROLLED BACK</div>
+                <div className="text-[10px] text-rose-600">Saga compensation done</div>
+              </div>
+              <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-center">
+                <div className="font-bold text-red-800">CONFLICT</div>
+                <div className="text-[10px] text-red-600">Same resource contested</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Real-Time KPI that updates live */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+            <div className="p-3 bg-sky-50 border border-sky-200 rounded-xl">
+              <div className="text-[10px] text-slate-500">Total Transactions (DB)</div>
+              <div className="text-2xl font-extrabold text-sky-800">{transactions.length}</div>
+            </div>
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <div className="text-[10px] text-slate-500">Available Beds (Live)</div>
+              <div className="text-2xl font-extrabold text-emerald-800">{beds.filter(b => b.status === 'AVAILABLE').length}</div>
+            </div>
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+              <div className="text-[10px] text-slate-500">Occupied Beds (Live)</div>
+              <div className="text-2xl font-extrabold text-amber-800">{beds.filter(b => b.status === 'OCCUPIED').length}</div>
+            </div>
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl">
+              <div className="text-[10px] text-slate-500">Active Conflicts</div>
+              <div className="text-2xl font-extrabold text-rose-800">{conflicts.length}</div>
+            </div>
+          </div>
+
+          {/* The Live Activity Feed Component */}
+          <LiveActivityFeed onDataChange={handleLiveDataChange} />
+        </div>
+      )}
 
       {/* TAB 1: EXECUTIVE OVERVIEW & ANALYTICS */}
       {activeTab === 'overview' && (

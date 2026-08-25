@@ -2,22 +2,40 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { StatusBadge } from '../components/StatusBadge';
 import { Bed, Filter, Search } from 'lucide-react';
+import { useSocket } from '../context/SocketContext';
 
 export function BedsPage() {
   const [beds, setBeds] = useState<any[]>([]);
   const [depts, setDepts] = useState<any[]>([]);
+  const { socket } = useSocket();
 
   // Filter States
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedDeptId, setSelectedDeptId] = useState<string>('ALL');
   const [selectedType, setSelectedType] = useState<string>('ALL');
 
-  useEffect(() => {
+  const loadData = () => {
     Promise.all([api.getBeds(), api.getDepartments()]).then(([b, d]) => {
       setBeds(b);
       setDepts(d);
     });
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  // Auto-refresh beds when resource state changes via WebSocket
+  useEffect(() => {
+    if (!socket) return;
+    const handleUpdate = () => { loadData(); };
+    socket.on('resource:updated', handleUpdate);
+    socket.on('transaction:updated', handleUpdate);
+    return () => {
+      socket.off('resource:updated', handleUpdate);
+      socket.off('transaction:updated', handleUpdate);
+    };
+  }, [socket]);
 
   const filteredBeds = beds.filter((b) => {
     if (selectedStatus !== 'ALL' && b.status !== selectedStatus) return false;

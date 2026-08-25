@@ -31,6 +31,7 @@ export function Sidebar() {
             title: '👑 SUPER ADMIN CONTROL',
             items: [
               { label: '1. Executive Overview', path: '/super-admin?tab=overview', icon: ShieldCheck, badge: 'TOP LEVEL' },
+              { label: '⚡ LIVE REQUEST FEED', path: '/super-admin?tab=live_feed', icon: Activity, badge: 'REAL-TIME' },
               { label: '2. Department Governance', path: '/super-admin?tab=departments', icon: Building },
               { label: '3. Staff & Access Control', path: '/super-admin?tab=staff', icon: Users },
               { label: '4. Hospital Resources', path: '/super-admin?tab=resources', icon: Bed },

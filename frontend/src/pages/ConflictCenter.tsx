@@ -2,16 +2,32 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { StatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { AlertTriangle, CheckCircle2, RefreshCw, ShieldAlert, ArrowRight, Filter, Zap } from 'lucide-react';
+import { useSocket } from '../context/SocketContext';
 
 export function ConflictCenter() {
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [depts, setDepts] = useState<any[]>([]);
   const [selectedDeptId, setSelectedDeptId] = useState<string>('ALL');
   const [msg, setMsg] = useState('');
+  const { socket } = useSocket();
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Auto-refresh when conflicts/transactions change via WebSocket
+  useEffect(() => {
+    if (!socket) return;
+    const handleUpdate = () => { loadData(); };
+    socket.on('conflict:created', handleUpdate);
+    socket.on('conflict:updated', handleUpdate);
+    socket.on('transaction:updated', handleUpdate);
+    return () => {
+      socket.off('conflict:created', handleUpdate);
+      socket.off('conflict:updated', handleUpdate);
+      socket.off('transaction:updated', handleUpdate);
+    };
+  }, [socket]);
 
   const loadData = async () => {
     const [c, d] = await Promise.all([api.getConflicts(), api.getDepartments()]);

@@ -4,15 +4,31 @@ import { Transaction } from '../types';
 import { StatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { TransactionTimeline } from '../components/TransactionTimeline';
 import { GitCommit, Eye, ArrowRight, CheckCircle2, AlertCircle, RefreshCw, Layers, ShieldCheck, Zap } from 'lucide-react';
+import { useSocket } from '../context/SocketContext';
 
 export function TransactionCenter() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const { socket } = useSocket();
 
   useEffect(() => {
     loadTransactions();
   }, []);
+
+  // Auto-refresh transactions when WebSocket events arrive
+  useEffect(() => {
+    if (!socket) return;
+    const handleUpdate = () => {
+      loadTransactions();
+    };
+    socket.on('transaction:updated', handleUpdate);
+    socket.on('conflict:created', handleUpdate);
+    return () => {
+      socket.off('transaction:updated', handleUpdate);
+      socket.off('conflict:created', handleUpdate);
+    };
+  }, [socket]);
 
   const loadTransactions = async () => {
     const data = await api.getTransactions();
